@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.net.Uri
 import android.graphics.Color
 import android.graphics.Typeface
@@ -93,8 +95,37 @@ class MainActivity : ComponentActivity() {
         checkCacheAndLoadData(forceRefresh = force)
     }
 
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            WeatherNotificationHelper.scheduleOrCancelWorker(this)
+        }
+    }
+
+    private fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    private fun checkCurrentAlertsIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(WeatherNotificationHelper.EXTRA_SHOW_CURRENT_ALERTS, false) == true) {
+            intent.removeExtra(WeatherNotificationHelper.EXTRA_SHOW_CURRENT_ALERTS)
+            WeatherNotificationHelper.showCurrentAlertsDialog(this)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        WeatherNotificationHelper.scheduleOrCancelWorker(this)
+
+        if (savedInstanceState == null) {
+            checkCurrentAlertsIntent(intent)
+        }
 
         // Si venimos de pulsar el widget, forzamos la actualización de todo
         if (savedInstanceState == null &&
@@ -117,34 +148,8 @@ class MainActivity : ComponentActivity() {
 
         contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(140), dp(16), dp(32))
+            setPadding(dp(16), dp(155), dp(16), dp(32))
         }
-
-        titleContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(4), dp(4), dp(2))
-        }
-
-        titleView = TextView(this).apply {
-            text = "Cargando..."
-            textSize = 20f
-            setTextColor(Color.parseColor("#1A202C"))
-            typeface = Typeface.DEFAULT_BOLD
-        }
-
-        btnStarMain = TextView(this).apply {
-            text = "☆"
-            textSize = 22f
-            setTextColor(Color.parseColor("#A0AEC0"))
-            setPadding(dp(8), 0, dp(8), 0)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { toggleCurrentCityFavorite() }
-        }
-
-        titleContainer.addView(titleView)
-        titleContainer.addView(btnStarMain)
 
         sourceAemetView = TextView(this).apply {
             text = "• AEMET: Verificando..."
@@ -160,7 +165,6 @@ class MainActivity : ComponentActivity() {
             setPadding(dp(4), dp(1), dp(4), dp(10))
         }
 
-        contentLayout.addView(titleContainer)
         contentLayout.addView(sourceAemetView)
         contentLayout.addView(sourceBackupView)
         scrollView.addView(contentLayout)
@@ -173,38 +177,45 @@ class MainActivity : ComponentActivity() {
             elevation = dp(4).toFloat()
         }
 
-        // Fila 1 (Superior): Hora de actualización a la izquierda, Ayuda y AEMET a la derecha
+        // Fila 1 (Superior): Hora de actualización a la izquierda | 🔑 AEMET + 🔔 Avisos a la derecha
         val row1 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(6))
+            setPadding(0, 0, 0, dp(4))
         }
 
         stickyTimeView = TextView(this).apply {
             text = ""
             textSize = 12f
             setTextColor(Color.parseColor("#718096"))
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, dp(6), 0) }
+        }
+
+        val rightRow1Buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
         }
 
-        val rightButtons = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
-        val btnHelpManual = TextView(this).apply {
-            text = "❓ Ayuda"
-            textSize = 13f
-            setTextColor(Color.parseColor("#2C5282"))
+        val btnAemetKey = TextView(this).apply {
+            text = "🔑 AEMET"
+            textSize = 12.5f
+            setTextColor(Color.parseColor("#744210"))
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EBF8FF"))
-                cornerRadius = dp(8).toFloat()
+                setColor(Color.parseColor("#FEFCBF"))
+                cornerRadius = dp(10).toFloat()
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { showHelpManualDialog() }
+            setOnClickListener { showAemetKeyDialog() }
             val lp = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -212,42 +223,93 @@ class MainActivity : ComponentActivity() {
             layoutParams = lp
         }
 
-        val btnAemetKey = TextView(this).apply {
-            text = "🔑 AEMET"
-            textSize = 13f
-            setTextColor(Color.parseColor("#744210"))
+        val btnNotif = TextView(this).apply {
+            text = "🔔 Avisos"
+            textSize = 12.5f
+            setTextColor(Color.parseColor("#276749"))
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#FEFCBF"))
-                cornerRadius = dp(8).toFloat()
+                setColor(Color.parseColor("#F0FFF4"))
+                cornerRadius = dp(10).toFloat()
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { showAemetKeyDialog() }
+            setOnClickListener {
+                WeatherNotificationHelper.showNotificationSettingsDialog(this@MainActivity) {
+                    checkAndRequestNotificationPermission()
+                }
+            }
         }
 
-        rightButtons.addView(btnHelpManual)
-        rightButtons.addView(btnAemetKey)
-        row1.addView(stickyTimeView)
-        row1.addView(rightButtons)
+        rightRow1Buttons.addView(btnAemetKey)
+        rightRow1Buttons.addView(btnNotif)
 
-        // Fila 2 (Inferior): Título + Estrella Favorita a la izquierda, Cambiar Ubicación a la derecha
+        row1.addView(stickyTimeView)
+        row1.addView(rightRow1Buttons)
+
+        // Fila 2 (Intermedia): Cambiar Ubicación a la izquierda | Ayuda a la derecha
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(4))
         }
 
-        val titleStarStickyContainer = LinearLayout(this).apply {
+        val btnChangeCity = TextView(this).apply {
+            text = "📍 Cambiar ubicación"
+            textSize = 12.5f
+            setTextColor(Color.parseColor("#3182CE"))
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#EBF8FF"))
+                cornerRadius = dp(10).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showCitySelectorDialog() }
+        }
+
+        val row2Spacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1.0f)
+        }
+
+        val btnHelpManual = TextView(this).apply {
+            text = "❓ Ayuda"
+            textSize = 12.5f
+            setTextColor(Color.parseColor("#2C5282"))
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#EBF8FF"))
+                cornerRadius = dp(10).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showHelpManualDialog() }
+        }
+
+        row2.addView(btnChangeCity)
+        row2.addView(row2Spacer)
+        row2.addView(btnHelpManual)
+
+        // Fila 3 (Inferior): Ubicación Actual + Estrella Favorita sola en su propia fila
+        val row3 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            setPadding(0, dp(2), 0, dp(2))
         }
 
         stickyTitle = TextView(this).apply {
             id = android.R.id.text1
             text = "Cargando..."
-            textSize = 18f
+            textSize = 19f
             setTextColor(Color.parseColor("#1A202C"))
             typeface = Typeface.DEFAULT_BOLD
             isSingleLine = true
@@ -256,45 +318,31 @@ class MainActivity : ComponentActivity() {
 
         btnStarSticky = TextView(this).apply {
             text = "☆"
-            textSize = 20f
+            textSize = 24f
             setTextColor(Color.parseColor("#A0AEC0"))
-            setPadding(dp(6), 0, dp(6), 0)
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            minWidth = dp(38)
+            setPadding(dp(8), dp(4), dp(8), dp(4))
             isClickable = true
             isFocusable = true
             setOnClickListener { toggleCurrentCityFavorite() }
         }
 
-        titleStarStickyContainer.addView(stickyTitle)
-        titleStarStickyContainer.addView(btnStarSticky)
-
-        val btnChangeCity = TextView(this).apply {
-            text = "📍 Cambiar"
-            textSize = 13f
-            setTextColor(Color.parseColor("#3182CE"))
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(12), dp(7), dp(12), dp(7))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EBF8FF"))
-                cornerRadius = dp(8).toFloat()
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { showCitySelectorDialog() }
-        }
-
-        row2.addView(titleStarStickyContainer)
-        row2.addView(btnChangeCity)
+        row3.addView(stickyTitle)
+        row3.addView(btnStarSticky)
 
         stickyHeaderDay = TextView(this).apply {
             text = ""
             textSize = 15f
             setTextColor(Color.parseColor("#2B6CB0"))
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, 0)
+            setPadding(0, dp(2), 0, 0)
         }
 
         stickyContainer.addView(row1)
         stickyContainer.addView(row2)
+        stickyContainer.addView(row3)
         stickyContainer.addView(stickyHeaderDay)
 
         val headerParams = FrameLayout.LayoutParams(
@@ -315,10 +363,11 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    // La app ya estaba abierta y el usuario pulsa el widget
+    // La app ya estaba abierta y el usuario pulsa el widget o una notificación
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        checkCurrentAlertsIntent(intent)
         if (intent.getBooleanExtra(WeatherWidgetProvider.EXTRA_REFRESH_FROM_WIDGET, false)) {
             intent.removeExtra(WeatherWidgetProvider.EXTRA_REFRESH_FROM_WIDGET)
             if (permissionFlowDone) {
@@ -587,7 +636,11 @@ class MainActivity : ComponentActivity() {
                     "4. FUENTES DE DATOS Y CLAVE AEMET:\n" +
                     "• Fila 1 (AEMET): Indica si la predicción proviene de la AEMET.\n" +
                     "• Fila 2 (Open-Meteo): Fuente de respaldo (usada para UV, Sol, Mareas o si no hay clave AEMET).\n" +
-                    "• Botón 🔑 AEMET: Permite introducir tu clave gratuita personal de AEMET OpenData. Si no la introduces, la app funciona perfectamente con Open-Meteo."
+                    "• Botón 🔑 AEMET: Permite introducir tu clave gratuita personal de AEMET OpenData. Si no la introduces, la app funciona perfectamente con Open-Meteo.\n\n" +
+                    "5. AVISOS Y NOTIFICACIONES PARA MAÑANA:\n" +
+                    "• Botón 🔔 Avisos: Permite configurar avisos personalizados para el tiempo de mañana.\n" +
+                    "• Incluye 10 condiciones independientes: Viento, Temp. Máxima/Mínima, Lluvia, Índice UV, Foto de la Luna, Cambio de Temp., Tormentas/Granizo, Niebla y Mareas.\n" +
+                    "• Solo se enviará notificación si alguna condición activada se cumple para el día de mañana."
             textSize = 13.5f
             setTextColor(Color.parseColor("#2D3748"))
         }
@@ -1091,7 +1144,6 @@ class MainActivity : ComponentActivity() {
     private fun renderTimeline(city: String, list: List<TimelineItem>, sourceUsed: String, dailySummaries: List<DailySummary> = emptyList()) {
         contentLayout.removeAllViews()
 
-        titleView.text = city
         stickyTitle.text = city
         updateStarUI()
 
@@ -1109,7 +1161,6 @@ class MainActivity : ComponentActivity() {
             sourceBackupView.setTextColor(Color.parseColor("#2B6CB0"))
         }
 
-        contentLayout.addView(titleContainer)
         contentLayout.addView(sourceAemetView)
         contentLayout.addView(sourceBackupView)
 
@@ -1155,6 +1206,16 @@ class MainActivity : ComponentActivity() {
             contentLayout.addView(err)
             return
         }
+
+        // Título de Previsión por Horas
+        val tvHourlyTitle = TextView(this).apply {
+            text = "⏱️ Previsión por Horas"
+            textSize = 15f
+            setTextColor(Color.parseColor("#2B6CB0"))
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(4), dp(14), dp(4), dp(2))
+        }
+        contentLayout.addView(tvHourlyTitle)
 
         var currentDayHeader = ""
 
@@ -1942,6 +2003,26 @@ class MainActivity : ComponentActivity() {
 }
 
 object MainActivityHelper {
+    data class CoastPoint(val name: String, val lat: Double, val lon: Double, val marineLat: Double, val marineLon: Double)
+    val coastPoints = listOf(
+        CoastPoint("Cádiz / San Fernando / Chiclana", 36.4600, -6.1800, 36.4500, -6.2800),
+        CoastPoint("Bahía de Algeciras", 36.1400, -5.4500, 36.1200, -5.4000),
+        CoastPoint("Costa de la Luz (Tarifa/Zahara)", 36.0100, -5.6000, 36.0000, -5.6500),
+        CoastPoint("Costa Noroeste (Sanlúcar/Rota)", 36.7800, -6.3500, 36.7500, -6.4200)
+    )
+
+    fun getNearestCoastPoint(lat: Double, lon: Double): CoastPoint? {
+        val r = 6371.0
+        for (cp in coastPoints) {
+            val dLat = Math.toRadians(cp.lat - lat)
+            val dLon = Math.toRadians(cp.lon - lon)
+            val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat)) * cos(Math.toRadians(cp.lat)) * sin(dLon / 2).pow(2)
+            val dist = 2.0 * r * asin(sqrt(a))
+            if (dist <= 15.0) return cp
+        }
+        return null
+    }
+
     data class AccurateMoonData(
         val phaseName: String,
         val phaseEmoji: String,

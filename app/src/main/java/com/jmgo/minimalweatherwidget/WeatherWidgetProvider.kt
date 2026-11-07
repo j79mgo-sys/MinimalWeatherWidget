@@ -532,7 +532,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     @SuppressLint("MissingPermission")
-    private fun resolveLocationAndMunicipio(context: Context): LocationData {
+    fun resolveLocationAndMunicipio(context: Context): LocationData {
         val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         val isManual = prefs.getBoolean("manual_location", false)
         val savedCode = prefs.getString("code", "11023") ?: "11023"
