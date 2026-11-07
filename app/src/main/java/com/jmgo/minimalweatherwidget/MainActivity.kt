@@ -1855,14 +1855,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun httpGet(urlStr: String, charset: Charset): String? {
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 7000
-            readTimeout = 7000
-            setRequestProperty("Accept", "application/json")
+        return try {
+            val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 7000
+                readTimeout = 7000
+                setRequestProperty("Accept", "application/json")
+            }
+            if (conn.responseCode != 200) null
+            else conn.inputStream.bufferedReader(charset).use { it.readText() }
+        } catch (e: Exception) {
+            null
         }
-        if (conn.responseCode != 200) return null
-        return conn.inputStream.bufferedReader(charset).use { it.readText() }
     }
 
     private fun windDirToArrow(dir: String): String = when (dir.uppercase()) {
