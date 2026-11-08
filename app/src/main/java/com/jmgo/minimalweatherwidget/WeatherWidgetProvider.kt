@@ -410,6 +410,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     ) {
         if (ids.isEmpty()) return
 
+        val cardIds = listOf(R.id.card0, R.id.card1, R.id.card2, R.id.card3)
         val iconIds = listOf(R.id.icon0, R.id.icon1, R.id.icon2, R.id.icon3)
         val dayIds = listOf(R.id.day0, R.id.day1, R.id.day2, R.id.day3)
         val windIds = listOf(R.id.wind0, R.id.wind1, R.id.wind2, R.id.wind3)
@@ -448,6 +449,19 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     val d = daysData[i]
                     views.setTextViewText(iconIds[i], d.icon)
                     views.setTextViewText(dayIds[i], d.dayName)
+
+                    val isWeekend = (d.dayName == "S" || d.dayName == "D")
+                    if (isWeekend) {
+                        val bgRes = if (isDark) R.drawable.bg_weekend_dark else R.drawable.bg_weekend_light
+                        views.setInt(cardIds[i], "setBackgroundResource", bgRes)
+                        val dayColor = if (isDark) Color.parseColor("#ED8936") else Color.parseColor("#DD6B20")
+                        views.setTextColor(dayIds[i], dayColor)
+                    } else {
+                        views.setInt(cardIds[i], "setBackgroundResource", 0)
+                        val dayColor = if (isDark) Color.parseColor("#FFD700") else Color.parseColor("#D69E2E")
+                        views.setTextColor(dayIds[i], dayColor)
+                    }
+
                     val windSpeed = if (d.windSpeedVal > 0) d.windSpeedVal else {
                         d.windText.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
                     }

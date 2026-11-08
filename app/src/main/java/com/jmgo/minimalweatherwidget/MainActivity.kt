@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
 
         contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(155), dp(16), dp(32))
+            setPadding(dp(16), dp(185), dp(16), dp(32))
         }
 
         sourceAemetView = TextView(this).apply {
