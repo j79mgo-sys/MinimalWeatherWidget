@@ -626,8 +626,8 @@ class MainActivity : ComponentActivity() {
             <h4 style="color:#2B6CB0;">2. 📱 WIDGETS DE PANTALLA DE INICIO (MODO CLARO Y OSCURO)</h4>
             <ul>
               <li><b>Widgets de 4 Días Adaptativos</b>: Consulta el tiempo actual y de los próximos 3 días sin necesidad de abrir la aplicación. Disponible en tema Oscuro y Claro.</li>
-              <li><b>⚠️ FILO ROJO DE ALERTA METEOROLÓGICA</b>: Si hay algún aviso meteorológico de AEMET o meteorología adversa (<b>AMARILLO 🟡, NARANJA 🟠 o ROJO 🔴</b>) para hoy o los próximos días, <b>el widget mostrará automáticamente un borde rojo destacado</b> para advertirte al instante.</li>
-              <li><b>🗓️ Destacado de Fin de Semana</b>: Las columnas de Sábado (<b>S</b>) y Domingo (<b>D</b>) incluyen un fondo redondeado y tono cálido especial para distinguirlos rápidamente.</li>
+              <li><b>⚠️ RESALTADO DE AVISOS Y ALERTAS POR DÍA EN EL WIDGET</b>: Si la AEMET o la predicción meteorológica activa algún aviso para un día en concreto, <b>la tarjeta de ese día específico se enmarca con un fondo redondeado del color del aviso más importante</b> (<b>🔴 ROJO</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLO</b> para riesgo moderado).</li>
+              <li><b>🗓️ Destacado de Fin de Semana</b>: Si un día no tiene avisos activos y es Sábado (<b>S</b>) o Domingo (<b>D</b>), la columna incluye un fondo redondeado suave y tono cálido especial para distinguirlo rápidamente.</li>
               <li><b>Simbología del Widget</b>:
                 <br/>• <i>Cabecera</i>: Municipio, temperatura actual e índice UV (si UV ≥ 3).
                 <br/>• <b>📷 🌕 (Camarita y Luna)</b>: Indica que en los próximos 4 días hay una ventana fotográfica óptima para fotografiar la Luna saliendo durante el atardecer.
