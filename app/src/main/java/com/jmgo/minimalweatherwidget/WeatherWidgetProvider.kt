@@ -272,10 +272,13 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 synchronized(updateLock) {
                     val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
                     val savedVersion = prefs.getInt("cache_version", 1)
+                    val savedDate = prefs.getString("cached_date", "")
+                    val currentDateStr = java.time.LocalDate.now().toString()
+                    val isSameDay = (savedDate == currentDateStr)
                     val lastFetch = if (savedVersion < CACHE_VERSION) 0L else prefs.getLong("last_fetch_time", 0L)
 
                     val currentTime = System.currentTimeMillis()
-                    val isCacheValid = (currentTime - lastFetch) < CACHE_MILLIS
+                    val isCacheValid = isSameDay && (currentTime - lastFetch) < CACHE_MILLIS
 
                     val locInfo = resolveLocationAndMunicipio(context)
                     val daysData = mutableListOf<DayForecast>()
@@ -316,6 +319,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             val editor = prefs.edit()
                             editor.putInt("cache_version", CACHE_VERSION)
                             editor.putLong("last_fetch_time", currentTime)
+                            editor.putString("cached_date", currentDateStr)
                             editor.putString("cached_temp", currentTemp)
                             editor.putInt("cached_current_uv", currentUv)
                             editor.putString("cached_widget_update_time", updateTimeStr)
@@ -371,6 +375,26 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                         }
                     }
 
+                    // Comprobamos si existe algún aviso AEMET/meteorológico (amarillo, naranja o rojo)
+                    var hasActiveWarning = false
+                    try {
+                        val multiDayWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(
+                            context, locInfo.municipioCode, locInfo.lat, locInfo.lon
+                        )
+                        hasActiveWarning = multiDayWarnings.any { w ->
+                            w.levelColor == "AMARILLO" || w.levelColor == "NARANJA" || w.levelColor == "ROJO"
+                        }
+                    } catch (e: Exception) {
+                        // Fallback silencioso
+                    }
+
+                    if (!hasActiveWarning && daysData.isNotEmpty()) {
+                        hasActiveWarning = daysData.any { d ->
+                            val rainVal = d.rainStr.replace("💧", "").trim().toDoubleOrNull() ?: 0.0
+                            d.windSpeedVal >= 35 || rainVal >= 10.0 || d.icon == "⛈️"
+                        }
+                    }
+
                     // Pintamos los dos widgets con los mismos datos
                     val darkIds = appWidgetManager.getAppWidgetIds(
                         ComponentName(context, WeatherWidgetProvider::class.java)
@@ -381,11 +405,11 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
                     applyToWidgets(
                         context, appWidgetManager, darkIds, R.layout.widget_weather,
-                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData
+                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, hasActiveWarning
                     )
                     applyToWidgets(
                         context, appWidgetManager, lightIds, R.layout.widget_weather_light,
-                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData
+                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, hasActiveWarning
                     )
                 }
             } catch (e: Exception) {
@@ -406,9 +430,17 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         currentUv: Int,
         anyGoodMoonPhoto: Boolean,
         updateTimeStr: String,
-        daysData: List<DayForecast>
+        daysData: List<DayForecast>,
+        hasActiveWarning: Boolean = false
     ) {
         if (ids.isEmpty()) return
+
+        val isDark = (layoutRes == R.layout.widget_weather)
+        val rootBg = if (hasActiveWarning) {
+            if (isDark) R.drawable.bg_widget_alert else R.drawable.bg_widget_light_alert
+        } else {
+            if (isDark) R.drawable.bg_widget else R.drawable.bg_widget_light
+        }
 
         val cardIds = listOf(R.id.card0, R.id.card1, R.id.card2, R.id.card3)
         val iconIds = listOf(R.id.icon0, R.id.icon1, R.id.icon2, R.id.icon3)
@@ -422,6 +454,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
         ids.forEach { appWidgetId ->
             val views = RemoteViews(context.packageName, layoutRes)
+            views.setInt(R.id.widgetRoot, "setBackgroundResource", rootBg)
 
             // Al pulsar el widget se abre la app y se fuerza la actualización de todo
             val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -811,7 +844,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun extractMaxDoubleFromPeriodArray(arr: JSONArray?): Double {
+    fun extractMaxDoubleFromPeriodArray(arr: JSONArray?): Double {
         if (arr == null) return 0.0
         var maxVal = 0.0
         for (i in 0 until arr.length()) {
@@ -826,7 +859,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         return maxVal
     }
 
-    private fun extractFirstNonEmptyString(arr: JSONArray?, key: String): String {
+    fun extractFirstNonEmptyString(arr: JSONArray?, key: String): String {
         if (arr == null) return ""
         for (i in 0 until arr.length()) {
             val v = arr.getJSONObject(i).optString(key, "").trim()

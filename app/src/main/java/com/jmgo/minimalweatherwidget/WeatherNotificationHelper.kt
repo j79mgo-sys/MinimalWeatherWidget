@@ -665,6 +665,310 @@ object WeatherNotificationHelper {
         }
     }
 
+    data class AemetDayWarning(
+        val dayLabel: String,
+        val levelColor: String,
+        val levelEmoji: String,
+        val description: String
+    )
+
+    fun fetchAemetMultiDayWarnings(
+        context: Context,
+        municipioCode: String,
+        lat: Double,
+        lon: Double,
+        dailySummaries: List<MainActivity.DailySummary> = emptyList()
+    ): List<AemetDayWarning> {
+        val warningsMap = mutableMapOf<String, AemetDayWarning>()
+        val apiKey = WeatherWidgetProvider.getAemetApiKey(context)
+        val provCode = if (municipioCode.length >= 2) municipioCode.substring(0, 2) else "11"
+
+        // 1. Evaluamos directamente los 7 días procesados que se muestran en pantalla (dailySummaries)
+        if (dailySummaries.isNotEmpty()) {
+            for (d in dailySummaries) {
+                val rainVal = d.rainStr.replace("💧", "").trim().toDoubleOrNull() ?: 0.0
+                val windVal = d.windSpeedVal
+
+                var level = "VERDE"
+                var emoji = "🟢"
+                val descs = mutableListOf<String>()
+
+                if (rainVal >= 40.0 || windVal >= 90) {
+                    level = "ROJO"
+                    emoji = "🔴"
+                } else if (rainVal >= 25.0 || windVal >= 70) {
+                    level = "NARANJA"
+                    emoji = "🟠"
+                } else if (rainVal >= 10.0 || windVal >= 35 || d.icon == "⛈️") {
+                    level = "AMARILLO"
+                    emoji = "🟡"
+                }
+
+                if (level != "VERDE") {
+                    if (rainVal >= 25.0) {
+                        descs.add("Lluvia muy intensa de ${rainVal.toInt()} mm (acumulaciones significativas)")
+                    } else if (rainVal >= 10.0) {
+                        descs.add("Lluvia de ${rainVal.toInt()} mm")
+                    }
+
+                    if (windVal >= 70) {
+                        descs.add("Rachas de viento muy fuertes de $windVal km/h")
+                    } else if (windVal >= 35) {
+                        descs.add("Viento fuerte de $windVal km/h")
+                    }
+
+                    if (d.icon == "⛈️") {
+                        descs.add("Riesgo de tormenta")
+                    }
+
+                    val dayDisplayLabel = when {
+                        d.fullDayLabel.startsWith("Hoy", ignoreCase = true) -> "Hoy (${d.dayName})"
+                        d.fullDayLabel.startsWith("Mañana", ignoreCase = true) -> "Mañana (${d.dayName})"
+                        else -> "${d.dayName} (${d.date.dayOfMonth}/${d.date.monthValue})"
+                    }
+
+                    val finalDesc = if (descs.isNotEmpty()) descs.joinToString(", ") else "Previsión de fenómenos adversos"
+                    warningsMap[dayDisplayLabel] = AemetDayWarning(dayDisplayLabel, level, emoji, finalDesc)
+                }
+            }
+        }
+
+        // 1. Intentar obtener Avisos Oficiales CAP de AEMET por provincia/zona (ej. 11 = Cádiz, 41 = Sevilla, etc.)
+        if (provCode.isNotBlank() && apiKey.isNotBlank()) {
+            try {
+                val capStep1Url = "https://opendata.aemet.es/opendata/api/avisos_cap/ultimoest/area/$provCode/?api_key=${apiKey.trim()}"
+                val capStep1Resp = httpGet(capStep1Url, java.nio.charset.Charset.forName("UTF-8"))
+                if (capStep1Resp != null) {
+                    val capStep1Json = org.json.JSONObject(capStep1Resp)
+                    if (capStep1Json.optInt("estado") == 200) {
+                        val datosUrl = capStep1Json.getString("datos")
+                        val capXmlResp = httpGet(datosUrl, java.nio.charset.Charset.forName("UTF-8"))
+                            ?: httpGet(datosUrl, java.nio.charset.Charset.forName("ISO-8859-15"))
+                        if (capXmlResp != null && capXmlResp.contains("<info>")) {
+                            val capParsed = parseAemetCapXml(capXmlResp)
+                            for (capW in capParsed) {
+                                val existing = warningsMap[capW.dayLabel]
+                                if (existing == null || isHigherLevel(capW.levelColor, existing.levelColor)) {
+                                    warningsMap[capW.dayLabel] = capW
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Continuar si falla la API CAP
+            }
+        }
+
+        // 2. Si no hay avisos CAP o para complementar, consultar predicción municipal diaria de AEMET
+        if (municipioCode.isNotBlank() && apiKey.isNotBlank()) {
+            try {
+                val step1Url = "https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/$municipioCode/?api_key=${apiKey.trim()}"
+                val step1Resp = httpGet(step1Url, java.nio.charset.Charset.forName("UTF-8"))
+                if (step1Resp != null) {
+                    val step1Json = org.json.JSONObject(step1Resp)
+                    if (step1Json.optInt("estado") == 200) {
+                        val datosUrl = step1Json.getString("datos")
+                        val step2Resp = httpGet(datosUrl, java.nio.charset.Charset.forName("ISO-8859-15"))
+                        if (step2Resp != null) {
+                            val rootArray = org.json.JSONArray(step2Resp)
+                            val diasArray = rootArray.getJSONObject(0)
+                                .getJSONObject("prediccion")
+                                .getJSONArray("dia")
+
+                            val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
+                            val nowDate = java.time.LocalDate.now()
+
+                            for (i in 0 until minOf(7, diasArray.length())) {
+                                val dObj = diasArray.getJSONObject(i)
+                                val fechaStr = dObj.optString("fecha", "").take(10)
+                                val date = try { java.time.LocalDate.parse(fechaStr) } catch (e: Exception) { nowDate.plusDays(i.toLong()) }
+
+                                val dayLabel = when (date) {
+                                    nowDate -> "Hoy (${diasSemana[date.dayOfWeek.value % 7]})"
+                                    nowDate.plusDays(1) -> "Mañana (${diasSemana[date.dayOfWeek.value % 7]})"
+                                    else -> "${diasSemana[date.dayOfWeek.value % 7]} (${date.dayOfMonth}/${date.monthValue})"
+                                }
+
+                                val rachaArray = dObj.optJSONArray("rachaMax")
+                                var maxRacha = 0
+                                if (rachaArray != null) {
+                                    for (k in 0 until rachaArray.length()) {
+                                        val rVal = rachaArray.optJSONObject(k)?.optInt("value", 0) ?: 0
+                                        if (rVal > maxRacha) maxRacha = rVal
+                                    }
+                                }
+
+                                val rainMm = WeatherWidgetProvider().extractMaxDoubleFromPeriodArray(dObj.optJSONArray("precipitacion"))
+                                val probArray = dObj.optJSONArray("probPrecipitacion")
+                                var maxProb = 0
+                                if (probArray != null) {
+                                    for (k in 0 until probArray.length()) {
+                                        val pVal = probArray.optJSONObject(k)?.optInt("value", 0) ?: 0
+                                        if (pVal > maxProb) maxProb = pVal
+                                    }
+                                }
+
+                                val cieloArray = dObj.optJSONArray("estadoCielo")
+                                val skyCode = WeatherWidgetProvider().extractFirstNonEmptyString(cieloArray, "value")
+                                var skyDesc = ""
+                                if (cieloArray != null) {
+                                    for (k in 0 until cieloArray.length()) {
+                                        val desc = cieloArray.optJSONObject(k)?.optString("descripcion", "")?.trim() ?: ""
+                                        if (desc.isNotBlank()) {
+                                            skyDesc = desc
+                                            break
+                                        }
+                                    }
+                                }
+
+                                var level = "VERDE"
+                                var emoji = "🟢"
+                                val descs = mutableListOf<String>()
+
+                                if (maxRacha >= 90 || rainMm >= 40.0) {
+                                    level = "ROJO"
+                                    emoji = "🔴"
+                                } else if (maxRacha >= 70 || rainMm >= 25.0) {
+                                    level = "NARANJA"
+                                    emoji = "🟠"
+                                } else if (maxRacha >= 40 || rainMm >= 10.0 || maxProb >= 80 || skyCode.contains("87") || skyCode.contains("88") || skyCode.startsWith("3") || skyDesc.contains("tormenta", ignoreCase = true) || skyDesc.contains("lluvia", ignoreCase = true)) {
+                                    level = "AMARILLO"
+                                    emoji = "🟡"
+                                }
+
+                                if (level != "VERDE") {
+                                    if (maxRacha >= 40) descs.add("Rachas de viento de $maxRacha km/h")
+                                    if (rainMm >= 10.0) descs.add("Lluvia de ${rainMm.toInt()} mm ($maxProb% prob.)")
+                                    else if (maxProb >= 80) descs.add("Probabilidad de lluvia del $maxProb%")
+                                    if (skyDesc.contains("tormenta", ignoreCase = true) || skyCode.startsWith("3")) descs.add(skyDesc)
+
+                                    val finalDesc = if (descs.isNotEmpty()) descs.joinToString(", ") else skyDesc.ifBlank { "Fenómeno adverso AEMET" }
+                                    val newW = AemetDayWarning(dayLabel, level, emoji, finalDesc)
+                                    val existing = warningsMap[dayLabel]
+                                    if (existing == null || isHigherLevel(level, existing.levelColor)) {
+                                        warningsMap[dayLabel] = newW
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                //
+            }
+        }
+
+        // 3. Respaldar con Open-Meteo si para algún día adverso no se había capturado
+        try {
+            val openMeteoData = WeatherWidgetProvider().fetchOpenMeteoFallbackAndCurrent(lat, lon, days = 7)
+            val daysList = openMeteoData.second
+            val nowDate = java.time.LocalDate.now()
+            val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
+
+            for (i in 0 until daysList.size) {
+                val d = daysList[i]
+                val date = nowDate.plusDays(i.toLong())
+                val dayLabel = when (i) {
+                    0 -> "Hoy (${diasSemana[date.dayOfWeek.value % 7]})"
+                    1 -> "Mañana (${diasSemana[date.dayOfWeek.value % 7]})"
+                    else -> "${diasSemana[date.dayOfWeek.value % 7]} (${date.dayOfMonth}/${date.monthValue})"
+                }
+
+                val rainVal = d.rainStr.replace("💧", "").trim().toDoubleOrNull() ?: 0.0
+                var level = "VERDE"
+                var emoji = "🟢"
+                val descs = mutableListOf<String>()
+
+                if (d.windSpeedVal >= 90 || rainVal >= 40.0) {
+                    level = "ROJO"
+                    emoji = "🔴"
+                } else if (d.windSpeedVal >= 70 || rainVal >= 25.0) {
+                    level = "NARANJA"
+                    emoji = "🟠"
+                } else if (d.windSpeedVal >= 40 || rainVal >= 10.0 || d.icon == "⛈️" || d.icon == "🌧️") {
+                    level = "AMARILLO"
+                    emoji = "🟡"
+                }
+
+                if (level != "VERDE") {
+                    if (d.windSpeedVal >= 40) descs.add("Viento de ${d.windSpeedVal} km/h")
+                    if (rainVal >= 10.0) descs.add("Lluvia de $rainVal mm")
+                    if (d.icon == "⛈️") descs.add("Riesgo de Tormenta")
+
+                    val finalDesc = if (descs.isNotEmpty()) descs.joinToString(", ") else "Previsión de tiempo adverso"
+                    val newW = AemetDayWarning(dayLabel, level, emoji, finalDesc)
+                    val existing = warningsMap[dayLabel]
+                    if (existing == null || isHigherLevel(level, existing.levelColor)) {
+                        warningsMap[dayLabel] = newW
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            //
+        }
+
+        return warningsMap.values.toList()
+    }
+
+    private fun isHigherLevel(newLevel: String, oldLevel: String): Boolean {
+        fun levelVal(l: String) = when (l.uppercase()) {
+            "ROJO" -> 3
+            "NARANJA" -> 2
+            "AMARILLO" -> 1
+            else -> 0
+        }
+        return levelVal(newLevel) > levelVal(oldLevel)
+    }
+
+    private fun parseAemetCapXml(xml: String): List<AemetDayWarning> {
+        val warnings = mutableListOf<AemetDayWarning>()
+        val blocks = xml.split("<info>")
+        val nowDate = java.time.LocalDate.now()
+        val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
+
+        for (block in blocks.drop(1)) {
+            val severity = block.substringAfter("<severity>", "").substringBefore("</severity>").trim()
+            val event = block.substringAfter("<event>", "").substringBefore("</event>").trim()
+            val headline = block.substringAfter("<headline>", "").substringBefore("</headline>").trim()
+            val description = block.substringAfter("<description>", "").substringBefore("</description>").trim()
+            val onsetStr = block.substringAfter("<onset>", "").substringBefore("</onset>").trim()
+            val areaDesc = block.substringAfter("<areaDesc>", "").substringBefore("</areaDesc>").trim()
+
+            if (severity.isBlank() && event.isBlank() && headline.isBlank()) continue
+
+            val date = try {
+                if (onsetStr.length >= 10) java.time.LocalDate.parse(onsetStr.substring(0, 10)) else nowDate
+            } catch (e: Exception) {
+                nowDate
+            }
+
+            val dayLabel = when (date) {
+                nowDate -> "Hoy (${diasSemana[date.dayOfWeek.value % 7]})"
+                nowDate.plusDays(1) -> "Mañana (${diasSemana[date.dayOfWeek.value % 7]})"
+                else -> "${diasSemana[date.dayOfWeek.value % 7]} (${date.dayOfMonth}/${date.monthValue})"
+            }
+
+            val (levelColor, levelEmoji) = when {
+                severity.equals("Extreme", ignoreCase = true) || severity.contains("Rojo", ignoreCase = true) -> Pair("ROJO", "🔴")
+                severity.equals("Severe", ignoreCase = true) || severity.contains("Naranja", ignoreCase = true) -> Pair("NARANJA", "🟠")
+                else -> Pair("AMARILLO", "🟡")
+            }
+
+            val textSummary = when {
+                headline.isNotBlank() -> headline
+                event.isNotBlank() && description.isNotBlank() -> "$event: $description"
+                description.isNotBlank() -> description
+                else -> event
+            }
+
+            val zoneText = if (areaDesc.isNotBlank()) " [$areaDesc]" else ""
+            warnings.add(AemetDayWarning(dayLabel, levelColor, levelEmoji, "$textSummary$zoneText"))
+        }
+
+        return warnings
+    }
+
     private fun httpGet(urlStr: String, charset: java.nio.charset.Charset): String? {
         return try {
             val conn = (java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection).apply {

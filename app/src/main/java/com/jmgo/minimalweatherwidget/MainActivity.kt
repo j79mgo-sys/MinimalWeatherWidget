@@ -57,9 +57,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var rootLayout: FrameLayout
     private lateinit var contentLayout: LinearLayout
     private lateinit var stickyContainer: LinearLayout
-    private lateinit var titleContainer: LinearLayout
-    private lateinit var titleView: TextView
-    private lateinit var btnStarMain: TextView
     private lateinit var btnStarSticky: TextView
     private lateinit var stickyTitle: TextView
     private lateinit var sourceAemetView: TextView
@@ -472,10 +469,6 @@ class MainActivity : ComponentActivity() {
             btnStarSticky.text = starText
             btnStarSticky.setTextColor(starColor)
         }
-        if (::btnStarMain.isInitialized) {
-            btnStarMain.text = starText
-            btnStarMain.setTextColor(starColor)
-        }
     }
 
     private fun getFavoriteTowns(): List<WeatherWidgetProvider.KnownTown> {
@@ -614,41 +607,96 @@ class MainActivity : ComponentActivity() {
 
     private fun showHelpManualDialog() {
         val container = ScrollView(this).apply {
-            setPadding(dp(20), dp(10), dp(20), dp(10))
+            setPadding(dp(16), dp(10), dp(16), dp(10))
         }
 
+        val htmlText = """
+            <h3>📖 MANUAL COMPLETO Y GUÍA DE USO</h3>
+            <p><b>Minimal Weather Widget</b> es una aplicación meteorológica avanzada y eficiente diseñada para ofrecer la máxima precisión meteorológica, avisos AEMET en tiempo real, eventos astronómicos y notificaciones personalizadas para tu día a día.</p>
+            
+            <hr/>
+            
+            <h4 style="color:#2B6CB0;">1. 📍 BÚSQUEDA DE UBICACIÓN Y FAVORITOS</h4>
+            <ul>
+              <li><b>Ubicación por GPS (📍 Cambiar ubicación)</b>: Detecta tu posición exacta automáticamente utilizando los servicios de geolocalización de tu dispositivo.</li>
+              <li><b>Búsqueda Manual</b>: Puedes escribir el nombre de cualquier municipio de España o ciudad del mundo.</li>
+              <li><b>⭐ Favoritos Rápidos</b>: Guarda tus ciudades habituales para cambiar entre ellas al instante con un solo toque desde la barra superior.</li>
+            </ul>
+
+            <h4 style="color:#2B6CB0;">2. 📱 WIDGETS DE PANTALLA DE INICIO (MODO CLARO Y OSCURO)</h4>
+            <ul>
+              <li><b>Widgets de 4 Días Adaptativos</b>: Consulta el tiempo actual y de los próximos 3 días sin necesidad de abrir la aplicación. Disponible en tema Oscuro y Claro.</li>
+              <li><b>⚠️ FILO ROJO DE ALERTA METEOROLÓGICA</b>: Si hay algún aviso meteorológico de AEMET o meteorología adversa (<b>AMARILLO 🟡, NARANJA 🟠 o ROJO 🔴</b>) para hoy o los próximos días, <b>el widget mostrará automáticamente un borde rojo destacado</b> para advertirte al instante.</li>
+              <li><b>🗓️ Destacado de Fin de Semana</b>: Las columnas de Sábado (<b>S</b>) y Domingo (<b>D</b>) incluyen un fondo redondeado y tono cálido especial para distinguirlos rápidamente.</li>
+              <li><b>Simbología del Widget</b>:
+                <br/>• <i>Cabecera</i>: Municipio, temperatura actual e índice UV (si UV ≥ 3).
+                <br/>• <b>📷 🌕 (Camarita y Luna)</b>: Indica que en los próximos 4 días hay una ventana fotográfica óptima para fotografiar la Luna saliendo durante el atardecer.
+                <br/>• <b>💧 Litros de Precipitación</b>: Muestra la precipitación prevista en mm por día (acumulación real en litros/m²).
+                <br/>• <b>Horas + ☀️ (ej: 12/16 ☀️)</b>: Rango horario de inicio (arriba) y fin (abajo) de radiación UV alta (≥ 3).
+                <br/>• <i>Colores de Temperatura</i>: Rojo (Máx ≥ 30 °C), Azul (Mín ≤ 10 °C).
+                <br/>• <i>Colores de Viento</i>: Flechas con barras de intensidad (ej: ↗ ||| 41 km/h) marcadas en rojo si superan 30 km/h.
+              </li>
+            </ul>
+
+            <h4 style="color:#2B6CB0;">3. ⚠️ TARJETA DE AVISOS Y ALERTAS ADVERSAS AEMET</h4>
+            <ul>
+              <li>Ubicada en la pantalla principal de la app entre la previsión de 7 días y la gráfica por horas.</li>
+              <li>Combina los <b>Avisos Oficiales CAP de AEMET</b> con la evaluación detallada de lluvia, viento y tormentas.</li>
+              <li>Muestra tarjetas distintivas:
+                <br/>• 🟢 <b>Sin avisos meteorológicos adversos previstos</b>.
+                <br/>• 🟡 <b>Aviso Amarillo</b>: Riesgo moderado / precaución.
+                <br/>• 🟠 <b>Aviso Naranja</b>: Riesgo importante / estar preparado.
+                <br/>• 🔴 <b>Aviso Rojo</b>: Riesgo extremo / tomar precauciones máximas.
+              </li>
+              <li>Al pulsar sobre la tarjeta o en el botón <b>🔔 Avisos</b> del encabezado, se despliega el resumen completo de fenómenos adversos por día.</li>
+            </ul>
+
+            <h4 style="color:#2B6CB0;">4. ⏱️ PREVISIÓN POR HORAS, ASTRONOMÍA Y MAREAS</h4>
+            <ul>
+              <li><b>Línea Temporal Hora a Hora</b>: Desplazamiento horizontal con el pronóstico de temperatura, estado del cielo, lluvia en mm, velocidad de viento y nivel UV.</li>
+              <li><b>🌅 🌇 Sol y Fotoperíodo</b>: Horarios exactos de amanecer, atardecer y horas totales de luz solar.</li>
+              <li><b>🌙 Fases Lunares y Ventana Fotográfica 📷</b>: Horarios de salida/puesta de la Luna y porcentaje de iluminación. Se marca en azul como <b>📷 ¡Óptima!</b> cuando la salida/puesta de la Luna coincide con el atardecer/amanecer solar (±60 min).</li>
+              <li><b>🌊 Mareas en Zonas Costeras</b>: Muestra las horas y alturas en metros de Pleamar (marea alta) y Bajamar (marea baja).</li>
+            </ul>
+
+            <h4 style="color:#2B6CB0;">5. 🔔 NOTIFICACIONES AUTOMÁTICAS Y CONFIGURACIÓN DE ALERTAS</h4>
+            <ul>
+              <li><b>Supervisión Diaria en Segundo Plano</b>: Un servicio WorkManager analiza automáticamente la previsión para el día de mañana.</li>
+              <li><b>11 Disparadores Personalizables</b>:
+                <br/>• ☔ <i>Lluvia/Precipitación</i> (umbral en mm).
+                <br/>• 💨 <i>Viento Fuerte</i> (umbral en km/h).
+                <br/>• 🌡️ <i>Calor Extremo</i> (máxima en °C).
+                <br/>• ❄️ <i>Frío Intenso</i> (mínima en °C).
+                <br/>• 🌨️ <i>Nieve o Aguanieve</i>.
+                <br/>• 🌩️ <i>Tormentas y Aparato Eléctrico</i>.
+                <br/>• ☀️ <i>Radiación UV Elevada</i> (UV ≥ 6).
+                <br/>• 🧊 <i>Heladas</i> (Mínima ≤ 0 °C).
+                <br/>• 📈 <i>Cambio Brusco de Temperatura</i> (diferencia ≥ 6 °C entre hoy y mañana).
+                <br/>• ⚠️ <i>Avisos Oficiales AEMET</i>.
+                <br/>• 📷 <i>Ventana Fotográfica de Luna</i>.
+              </li>
+              <li><b>Programación de Hora</b>: Elige a qué hora del atardecer/noche deseas recibir el resumen de alerta (ej: 20:00).</li>
+              <li><b>Vista Previa "Ver Alertas Previstas"</b>: Comprueba instantáneamente qué notificaciones se enviarían con el pronóstico actual.</li>
+            </ul>
+
+            <h4 style="color:#2B6CB0;">6. 🔑 CLAVE AEMET OPENDATA Y FUENTES DE DATOS</h4>
+            <ul>
+              <li><b>API Key AEMET (Opcional)</b>: Puedes vincular tu clave gratuita personal obtenida en AEMET OpenData desde el botón <b>🔑 AEMET</b> para obtener los datos oficiales del organismo estatal de meteorología en España.</li>
+              <li><b>Open-Meteo (Respaldo Automático)</b>: Si no introduces clave o consultas una ubicación internacional, la app utiliza la API global Open-Meteo de forma transparente y sin coste.</li>
+            </ul>
+        """.trimIndent()
+
         val content = TextView(this).apply {
-            text = "📖 MANUAL DE AYUDA - MINIMAL WEATHER WIDGET\n\n" +
-                    "1. ESTRUCTURA Y SIMBOLOGÍA DEL WIDGET:\n" +
-                    "• Cabecera: Ciudad, temperatura actual e índice UV actual (si UV ≥ 3).\n" +
-                    "• 📷 🌕 (Camarita y Luna): Indica que en los próximos 4 días hay una ventana óptima para fotografiar la Luna.\n" +
-                    "• 💧 (Gota de agua): Muestra los litros de lluvia acumulados en mm (solo aparece si hay lluvia prevista).\n" +
-                    "• Horas apiladas + ☀️ (ej: 12/16 ☀️): Horario de inicio (arriba) y fin (abajo) de radiación UV ≥ 3.\n\n" +
-                    "2. CÓDIGO DE COLORES EN EL WIDGET:\n" +
-                    "• Temperatura en Rojo: Máxima ≥ 30 °C.\n" +
-                    "• Temperatura en Azul: Mínima ≤ 10 °C.\n" +
-                    "• Viento en Rojo: Velocidad ≥ 30 km/h (ej: ↗ ||| 41).\n\n" +
-                    "3. PREVISIÓN POR HORAS Y EVENTOS ASTRONÓMICOS (EN LA APP):\n" +
-                    "• Línea temporal hora a hora con tiempo, temperatura, viento, lluvia e índice UV.\n" +
-                    "• Eventos astronómicos: Salida y puesta del Sol (🌅 🌇) y de la Luna con fase lunar.\n" +
-                    "• 📷 ¡Óptima!: Se destaca en azul cuando la salida de la Luna coincide con el ocaso o su puesta con el amanecer (±60 min).\n" +
-                    "• 🌊 🏖️ Mareas (en costa): Horarios de Pleamar y Bajamar con altura en metros.\n\n" +
-                    "4. FUENTES DE DATOS Y CLAVE AEMET:\n" +
-                    "• Fila 1 (AEMET): Indica si la predicción proviene de la AEMET.\n" +
-                    "• Fila 2 (Open-Meteo): Fuente de respaldo (usada para UV, Sol, Mareas o si no hay clave AEMET).\n" +
-                    "• Botón 🔑 AEMET: Permite introducir tu clave gratuita personal de AEMET OpenData. Si no la introduces, la app funciona perfectamente con Open-Meteo.\n\n" +
-                    "5. AVISOS Y NOTIFICACIONES PARA MAÑANA:\n" +
-                    "• Botón 🔔 Avisos: Permite configurar avisos personalizados para el tiempo de mañana.\n" +
-                    "• Incluye 10 condiciones independientes: Viento, Temp. Máxima/Mínima, Lluvia, Índice UV, Foto de la Luna, Cambio de Temp., Tormentas/Granizo, Niebla y Mareas.\n" +
-                    "• Solo se enviará notificación si alguna condición activada se cumple para el día de mañana."
+            text = android.text.Html.fromHtml(htmlText, android.text.Html.FROM_HTML_MODE_LEGACY)
             textSize = 13.5f
             setTextColor(Color.parseColor("#2D3748"))
+            setLineSpacing(dp(2).toFloat(), 1.05f)
         }
 
         container.addView(content)
 
         AlertDialog.Builder(this)
-            .setTitle("Manual de Ayuda y Uso")
+            .setTitle("📖 Manual y Guía Completa de Uso")
             .setView(container)
             .setPositiveButton("Entendido", null)
             .show()
@@ -814,8 +862,11 @@ class MainActivity : ComponentActivity() {
 
                 val lastHourlyFetch = prefs.getLong("last_hourly_fetch_time", 0L)
                 val savedHourlyVersion = prefs.getInt("hourly_cache_version", 1)
+                val savedHourlyDate = prefs.getString("cached_hourly_date", "")
+                val currentDateStr = LocalDate.now().toString()
+                val isSameDay = (savedHourlyDate == currentDateStr)
                 val currentHourlyVersion = 12
-                val isHourlyCacheValid = !forceRefresh && (savedHourlyVersion == currentHourlyVersion) && (now - lastHourlyFetch) < CACHE_MILLIS
+                val isHourlyCacheValid = !forceRefresh && isSameDay && (savedHourlyVersion == currentHourlyVersion) && (now - lastHourlyFetch) < CACHE_MILLIS
 
                 // Si la previsión por horas se va a descargar de nuevo, el widget también:
                 // así se actualizan siempre a la vez
@@ -898,6 +949,7 @@ class MainActivity : ComponentActivity() {
         }
         prefs.edit()
             .putInt("hourly_cache_version", version)
+            .putString("cached_hourly_date", LocalDate.now().toString())
             .putString("cached_hourly_json", arr.toString())
             .putString("cached_hourly_source", source)
             .putString("cached_update_time_str", timeStr)
@@ -1141,6 +1193,85 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun createAemetWarningsCard(warnings: List<WeatherNotificationHelper.AemetDayWarning>): View {
+        val paddingPx = dp(14)
+        val hasWarnings = warnings.isNotEmpty()
+
+        val cardBgColor = if (hasWarnings) "#FFF5F5" else "#F0FFF4"
+        val cardStrokeColor = if (hasWarnings) "#FEB2B2" else "#C6F6D5"
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor(cardBgColor))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.parseColor(cardStrokeColor))
+            }
+            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, dp(10), 0, dp(8))
+            }
+            layoutParams = lp
+        }
+
+        val tvHeader = TextView(this).apply {
+            text = "⚠️ Avisos AEMET (Fenómenos Adversos)"
+            textSize = 15.5f
+            setTextColor(Color.parseColor("#1A202C"))
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, 0, 0, dp(6))
+        }
+        container.addView(tvHeader)
+
+        if (!hasWarnings) {
+            val tvSub = TextView(this).apply {
+                text = "🟢 Sin avisos meteorológicos adversos"
+                textSize = 14f
+                setTextColor(Color.parseColor("#276749"))
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, dp(4))
+            }
+            val tvDesc = TextView(this).apply {
+                text = "No hay avisos amarillos, naranjas o rojos activos para esta ubicación en la predicción oficial AEMET."
+                textSize = 13f
+                setTextColor(Color.parseColor("#4A5568"))
+            }
+            container.addView(tvSub)
+            container.addView(tvDesc)
+        } else {
+            for (w in warnings) {
+                val itemLayout = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, dp(4), 0, dp(4))
+                }
+                val tvTitle = TextView(this).apply {
+                    text = "${w.levelEmoji} ${w.dayLabel} - Aviso ${w.levelColor}"
+                    textSize = 13.5f
+                    val textColor = when (w.levelColor) {
+                        "ROJO" -> "#E53E3E"
+                        "NARANJA" -> "#DD6B20"
+                        else -> "#D69E2E"
+                    }
+                    setTextColor(Color.parseColor(textColor))
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                val tvDesc = TextView(this).apply {
+                    text = w.description
+                    textSize = 13f
+                    setTextColor(Color.parseColor("#2D3748"))
+                }
+                itemLayout.addView(tvTitle)
+                itemLayout.addView(tvDesc)
+                container.addView(itemLayout)
+            }
+        }
+
+        return container
+    }
+
     private fun renderTimeline(city: String, list: List<TimelineItem>, sourceUsed: String, dailySummaries: List<DailySummary> = emptyList()) {
         contentLayout.removeAllViews()
 
@@ -1194,6 +1325,16 @@ class MainActivity : ComponentActivity() {
             summaryScroll.addView(summaryRow)
             contentLayout.addView(summaryScroll)
         }
+
+        // Tarjeta de Avisos AEMET (Fenómenos Adversos)
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+        val code = prefs.getString("code", "11023") ?: "11023"
+        val lat = prefs.getFloat("lat", 36.4578f).toDouble()
+        val lon = prefs.getFloat("lon", -5.9272f).toDouble()
+
+        val aemetWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(this, code, lat, lon, dailySummaries)
+        val aemetWarningsCard = createAemetWarningsCard(aemetWarnings)
+        contentLayout.addView(aemetWarningsCard)
 
         dayHeadersInfo.clear()
 
