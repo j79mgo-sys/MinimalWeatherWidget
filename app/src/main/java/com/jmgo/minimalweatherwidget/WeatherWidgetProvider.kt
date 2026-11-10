@@ -520,7 +520,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
             // Ubicación actual + Temp actual + UV actual (si UV >= 3)
             val uvHeaderStr = if (currentUv >= 3) "  UV$currentUv" else ""
-            views.setTextViewText(R.id.tvHeaderCityTemp, "$cityName $currentTemp°$uvHeaderStr")
+            views.setTextViewText(R.id.tvHeaderCityTemp, "📍 $cityName $currentTemp°$uvHeaderStr")
 
             // Indicador Foto Óptima Luna + Hora de actualización del widget
             val moonStr = if (anyGoodMoonPhoto) "📷 🌕  " else ""

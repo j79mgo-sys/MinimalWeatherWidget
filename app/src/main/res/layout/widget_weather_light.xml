@@ -8,7 +8,7 @@
     android:paddingStart="10dp"
     android:paddingEnd="10dp"
     android:paddingTop="4dp"
-    android:paddingBottom="2dp">
+    android:paddingBottom="4dp">
 
     <!-- Cabecera -->
     <LinearLayout
@@ -26,7 +26,7 @@
             android:ellipsize="end"
             android:includeFontPadding="false"
             android:singleLine="true"
-            android:text="Medina Sidonia 23°"
+            android:text="📍 Medina Sidonia 23°"
             android:textColor="#D69E2E"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -38,7 +38,7 @@
             android:includeFontPadding="false"
             android:text=""
             android:textColor="#4A5568"
-            android:textSize="11sp" />
+            android:textSize="11.5sp" />
     </LinearLayout>
 
     <!-- Contenedor de los 4 días -->
@@ -60,6 +60,7 @@
             android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
+            <!-- Fila Día + Icono -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -83,8 +84,15 @@
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
                     android:text="⛅"
-                    android:textSize="32sp" />
+                    android:textSize="34sp" />
             </LinearLayout>
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
 
             <!-- Fila Viento + Campanita Aviso -->
             <LinearLayout
@@ -98,6 +106,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="↗ 11"
                     android:textColor="#4A5568"
                     android:textSize="13sp" />
@@ -106,24 +115,35 @@
                     android:id="@+id/alertBell0"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="🔔"
-                    android:textSize="12sp"
+                    android:textSize="12.5sp"
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Temperaturas Máx / Mín -->
             <TextView
                 android:id="@+id/temp0"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:includeFontPadding="false"
+                android:singleLine="true"
                 android:text="25 / 12"
                 android:textColor="#1A202C"
-                android:textSize="15sp"
+                android:textSize="15.5sp"
                 android:textStyle="bold" />
 
-            <!-- Fila agua + UV -->
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
+
+            <!-- Pie de Página: Lluvia + Rango UV -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -135,6 +155,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text=""
                     android:textColor="#3182CE"
                     android:textSize="14sp"
@@ -143,7 +164,7 @@
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -158,6 +179,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text=""
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -168,6 +190,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text=""
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -180,6 +203,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="1dp"
                         android:includeFontPadding="false"
+                        android:singleLine="true"
                         android:text=""
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -197,6 +221,7 @@
             android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
+            <!-- Fila Día + Icono -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -220,8 +245,15 @@
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
                     android:text="☁️"
-                    android:textSize="32sp" />
+                    android:textSize="34sp" />
             </LinearLayout>
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
 
             <!-- Fila Viento + Campanita Aviso -->
             <LinearLayout
@@ -235,6 +267,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="↑ 18"
                     android:textColor="#4A5568"
                     android:textSize="13sp" />
@@ -243,24 +276,35 @@
                     android:id="@+id/alertBell1"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="🔔"
-                    android:textSize="12sp"
+                    android:textSize="12.5sp"
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Temperaturas Máx / Mín -->
             <TextView
                 android:id="@+id/temp1"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:includeFontPadding="false"
+                android:singleLine="true"
                 android:text="21 / 13"
                 android:textColor="#1A202C"
-                android:textSize="15sp"
+                android:textSize="15.5sp"
                 android:textStyle="bold" />
 
-            <!-- Fila agua + UV -->
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
+
+            <!-- Pie de Página: Lluvia + Rango UV -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -272,6 +316,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text=""
                     android:textColor="#3182CE"
                     android:textSize="14sp"
@@ -280,7 +325,7 @@
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -295,6 +340,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text=""
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -305,6 +351,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text=""
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -317,6 +364,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="1dp"
                         android:includeFontPadding="false"
+                        android:singleLine="true"
                         android:text=""
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -334,6 +382,7 @@
             android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
+            <!-- Fila Día + Icono -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -357,8 +406,15 @@
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
                     android:text="🌧️"
-                    android:textSize="32sp" />
+                    android:textSize="34sp" />
             </LinearLayout>
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
 
             <!-- Fila Viento + Campanita Aviso -->
             <LinearLayout
@@ -372,6 +428,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="↑ 18"
                     android:textColor="#4A5568"
                     android:textSize="13sp" />
@@ -380,24 +437,35 @@
                     android:id="@+id/alertBell2"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="🔔"
-                    android:textSize="12sp"
+                    android:textSize="12.5sp"
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Temperaturas Máx / Mín -->
             <TextView
                 android:id="@+id/temp2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:includeFontPadding="false"
+                android:singleLine="true"
                 android:text="18 / 14"
                 android:textColor="#1A202C"
-                android:textSize="15sp"
+                android:textSize="15.5sp"
                 android:textStyle="bold" />
 
-            <!-- Fila agua + UV -->
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
+
+            <!-- Pie de Página: Lluvia + Rango UV -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -409,6 +477,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="💧7"
                     android:textColor="#3182CE"
                     android:textSize="14sp"
@@ -417,7 +486,7 @@
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -432,6 +501,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text="11"
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -442,6 +512,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text="17"
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -454,6 +525,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="1dp"
                         android:includeFontPadding="false"
+                        android:singleLine="true"
                         android:text="☀️"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -471,6 +543,7 @@
             android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
+            <!-- Fila Día + Icono -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -494,8 +567,15 @@
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
                     android:text="☁️"
-                    android:textSize="32sp" />
+                    android:textSize="34sp" />
             </LinearLayout>
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
 
             <!-- Fila Viento + Campanita Aviso -->
             <LinearLayout
@@ -509,6 +589,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="↗ 16"
                     android:textColor="#4A5568"
                     android:textSize="13sp" />
@@ -517,24 +598,35 @@
                     android:id="@+id/alertBell3"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text="🔔"
-                    android:textSize="12sp"
+                    android:textSize="12.5sp"
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Temperaturas Máx / Mín -->
             <TextView
                 android:id="@+id/temp3"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:includeFontPadding="false"
+                android:singleLine="true"
                 android:text="20 / 12"
                 android:textColor="#1A202C"
-                android:textSize="15sp"
+                android:textSize="15.5sp"
                 android:textStyle="bold" />
 
-            <!-- Fila agua + UV -->
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@null"
+                android:visibility="invisible" />
+
+            <!-- Pie de Página: Lluvia + Rango UV -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -546,6 +638,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
+                    android:singleLine="true"
                     android:text=""
                     android:textColor="#3182CE"
                     android:textSize="14sp"
@@ -554,7 +647,7 @@
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
+                    android:layout_marginStart="2dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -569,6 +662,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text=""
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -579,6 +673,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:singleLine="true"
                             android:text=""
                             android:textColor="#E53E3E"
                             android:textSize="11sp"
@@ -591,6 +686,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="1dp"
                         android:includeFontPadding="false"
+                        android:singleLine="true"
                         android:text=""
                         android:textSize="12sp" />
                 </LinearLayout>
