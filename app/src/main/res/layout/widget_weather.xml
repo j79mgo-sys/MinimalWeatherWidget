@@ -86,6 +86,15 @@
                     android:textSize="32sp" />
             </LinearLayout>
 
+            <ImageView
+                android:id="@+id/alertLine0"
+                android:layout_width="32dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="1dp"
+                android:layout_marginBottom="2dp"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/wind0"
                 android:layout_width="wrap_content"
@@ -204,6 +213,15 @@
                     android:text="☁️"
                     android:textSize="32sp" />
             </LinearLayout>
+
+            <ImageView
+                android:id="@+id/alertLine1"
+                android:layout_width="32dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="1dp"
+                android:layout_marginBottom="2dp"
+                android:contentDescription="@null"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/wind1"
@@ -324,6 +342,15 @@
                     android:textSize="32sp" />
             </LinearLayout>
 
+            <ImageView
+                android:id="@+id/alertLine2"
+                android:layout_width="32dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="1dp"
+                android:layout_marginBottom="2dp"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/wind2"
                 android:layout_width="wrap_content"
@@ -442,6 +469,15 @@
                     android:text="☁️"
                     android:textSize="32sp" />
             </LinearLayout>
+
+            <ImageView
+                android:id="@+id/alertLine3"
+                android:layout_width="32dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="1dp"
+                android:layout_marginBottom="2dp"
+                android:contentDescription="@null"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/wind3"

@@ -247,7 +247,7 @@ class MainActivity : ComponentActivity() {
         row1.addView(stickyTimeView)
         row1.addView(rightRow1Buttons)
 
-        // Fila 2 (Intermedia): Cambiar Ubicación a la izquierda | Ayuda a la derecha
+        // Fila 2 (Intermedia): Ubicación + Mapas a la izquierda | Ayuda a la derecha
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -255,13 +255,13 @@ class MainActivity : ComponentActivity() {
         }
 
         val btnChangeCity = TextView(this).apply {
-            text = "📍 Cambiar ubicación"
+            text = "📍 Ubicación"
             textSize = 12.5f
             setTextColor(Color.parseColor("#3182CE"))
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             minHeight = dp(38)
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#EBF8FF"))
                 cornerRadius = dp(10).toFloat()
@@ -269,6 +269,33 @@ class MainActivity : ComponentActivity() {
             isClickable = true
             isFocusable = true
             setOnClickListener { showCitySelectorDialog() }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, dp(6), 0) }
+            layoutParams = lp
+        }
+
+        val btnMaps = TextView(this).apply {
+            text = "🗺️ Mapas"
+            textSize = 12.5f
+            setTextColor(Color.parseColor("#2C5282"))
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#EBF8FF"))
+                cornerRadius = dp(10).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showAemetMapsDialog() }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, dp(6), 0) }
+            layoutParams = lp
         }
 
         val row2Spacer = View(this).apply {
@@ -282,7 +309,7 @@ class MainActivity : ComponentActivity() {
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             minHeight = dp(38)
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#EBF8FF"))
                 cornerRadius = dp(10).toFloat()
@@ -293,6 +320,7 @@ class MainActivity : ComponentActivity() {
         }
 
         row2.addView(btnChangeCity)
+        row2.addView(btnMaps)
         row2.addView(row2Spacer)
         row2.addView(btnHelpManual)
 
@@ -605,6 +633,168 @@ class MainActivity : ComponentActivity() {
         dialog.show()
     }
 
+    private fun showAemetMapsDialog() {
+        if (isFinishing || isDestroyed) return
+        try {
+            val dialog = android.app.Dialog(this, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen)
+
+            val rootLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#F7FAFC"))
+            }
+
+            // Barra superior del mapa
+            val headerBar = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                setBackgroundColor(Color.parseColor("#2B6CB0"))
+            }
+
+            val tvTitle = TextView(this).apply {
+                text = "🗺️ Mapas de la AEMET"
+                textSize = 17f
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val webView = android.webkit.WebView(this).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                settings.builtInZoomControls = true
+                settings.displayZoomControls = false
+                webViewClient = android.webkit.WebViewClient()
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+            }
+
+            val btnClose = TextView(this).apply {
+                text = "✕ Cerrar"
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(dp(12), dp(6), dp(12), dp(6))
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#2C5282"))
+                    cornerRadius = dp(8).toFloat()
+                }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    try {
+                        webView.destroy()
+                    } catch (_: Exception) {}
+                    try {
+                        dialog.dismiss()
+                    } catch (_: Exception) {}
+                }
+            }
+
+            headerBar.addView(tvTitle)
+            headerBar.addView(btnClose)
+            rootLayout.addView(headerBar)
+
+            // Barra de Pestañas de Mapas con scroll horizontal
+            val tabsScroll = HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                setBackgroundColor(Color.parseColor("#EDF2F7"))
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+            }
+
+            val tabsLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            data class MapTab(val label: String, val url: String)
+            val mapTabs = listOf(
+                MapTab("⚠️ Avisos", "https://www.aemet.es/es/eltiempo/prediccion/avisos"),
+                MapTab("🌧️ Radar Lluvia", "https://www.aemet.es/es/eltiempo/observacion/radar"),
+                MapTab("🏖️ Playas", "https://www.aemet.es/es/eltiempo/prediccion/playas"),
+                MapTab("🛰️ Satélite Meteosat", "https://www.aemet.es/es/eltiempo/observacion/satelite"),
+                MapTab("🌡️ Temperaturas y Municipios", "https://www.aemet.es/es/eltiempo/prediccion/municipios"),
+                MapTab("🔥 Incendios", "https://www.aemet.es/es/eltiempo/prediccion/incendios"),
+                MapTab("⚡ Rayos y Tormentas", "https://www.aemet.es/es/eltiempo/observacion/rayos")
+            )
+
+            var selectedTabBtn: TextView? = null
+
+            mapTabs.forEachIndexed { index, tab ->
+                val btnTab = TextView(this).apply {
+                    text = tab.label
+                    textSize = 13f
+                    typeface = Typeface.DEFAULT_BOLD
+                    gravity = Gravity.CENTER
+                    minHeight = dp(36)
+                    setPadding(dp(12), dp(6), dp(12), dp(6))
+
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(0, 0, dp(6), 0) }
+                    layoutParams = lp
+
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        selectedTabBtn?.apply {
+                            setTextColor(Color.parseColor("#2D3748"))
+                            background = GradientDrawable().apply {
+                                setColor(Color.parseColor("#E2E8F0"))
+                                cornerRadius = dp(8).toFloat()
+                            }
+                        }
+                        selectedTabBtn = this
+                        setTextColor(Color.WHITE)
+                        background = GradientDrawable().apply {
+                            setColor(Color.parseColor("#3182CE"))
+                            cornerRadius = dp(8).toFloat()
+                        }
+
+                        try {
+                            webView.loadUrl(tab.url)
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                if (index == 0) {
+                    selectedTabBtn = btnTab
+                    btnTab.setTextColor(Color.WHITE)
+                    btnTab.background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#3182CE"))
+                        cornerRadius = dp(8).toFloat()
+                    }
+                    try {
+                        webView.loadUrl(tab.url)
+                    } catch (_: Exception) {}
+                } else {
+                    btnTab.setTextColor(Color.parseColor("#2D3748"))
+                    btnTab.background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#E2E8F0"))
+                        cornerRadius = dp(8).toFloat()
+                    }
+                }
+
+                tabsLayout.addView(btnTab)
+            }
+
+            tabsScroll.addView(tabsLayout)
+            rootLayout.addView(tabsScroll)
+            rootLayout.addView(webView)
+
+            dialog.setContentView(rootLayout)
+            dialog.show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun showHelpManualDialog() {
         val container = ScrollView(this).apply {
             setPadding(dp(16), dp(10), dp(16), dp(10))
@@ -618,16 +808,16 @@ class MainActivity : ComponentActivity() {
             
             <h4 style="color:#2B6CB0;">1. 📍 BÚSQUEDA DE UBICACIÓN Y FAVORITOS</h4>
             <ul>
-              <li><b>Ubicación por GPS (📍 Cambiar ubicación)</b>: Detecta tu posición exacta automáticamente utilizando los servicios de geolocalización de tu dispositivo.</li>
+              <li><b>Ubicación por GPS (📍 Ubicación)</b>: Detecta tu posición exacta automáticamente utilizando los servicios de geolocalización de tu dispositivo.</li>
               <li><b>Búsqueda Manual</b>: Puedes escribir el nombre de cualquier municipio de España o ciudad del mundo.</li>
               <li><b>⭐ Favoritos Rápidos</b>: Guarda tus ciudades habituales para cambiar entre ellas al instante con un solo toque desde la barra superior.</li>
             </ul>
 
             <h4 style="color:#2B6CB0;">2. 📱 WIDGETS DE PANTALLA DE INICIO (MODO CLARO Y OSCURO)</h4>
             <ul>
-              <li><b>Widgets de 4 Días Adaptativos</b>: Consulta el tiempo actual y de los próximos 3 días sin necesidad de abrir la aplicación. Disponible en tema Oscuro y Claro.</li>
-              <li><b>⚠️ RESALTADO DE AVISOS Y ALERTAS POR DÍA EN EL WIDGET</b>: Si la AEMET o la predicción meteorológica activa algún aviso para un día en concreto, <b>la tarjeta de ese día específico se enmarca con un fondo redondeado del color del aviso más importante</b> (<b>🔴 ROJO</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLO</b> para riesgo moderado).</li>
-              <li><b>🗓️ Destacado de Fin de Semana</b>: Si un día no tiene avisos activos y es Sábado (<b>S</b>) o Domingo (<b>D</b>), la columna incluye un fondo redondeado suave y tono cálido especial para distinguirlo rápidamente.</li>
+              <li><b>Widgets de 4 Días Adaptativos</b>: Consulta el tiempo actual y de los próximos días directamente en tu pantalla de inicio. Disponible en tema Oscuro y Claro.</li>
+              <li><b>⚠️ LÍNEA DE AVISO AEMET BAJO EL DÍA</b>: Si la AEMET emite un aviso para un día en concreto, <b>aparece una línea de color destacada justo debajo del día y su icono</b> (<b>🔴 ROJA</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLA</b> para riesgo moderado) manteniendo el fondo del widget limpio.</li>
+              <li><b>🗓️ Destacado de Fin de Semana</b>: Las columnas de Sábado (<b>S</b>) y Domingo (<b>D</b>) incluyen un fondo redondeado suave para distinguirlos rápidamente.</li>
               <li><b>Simbología del Widget</b>:
                 <br/>• <i>Cabecera</i>: Municipio, temperatura actual e índice UV (si UV ≥ 3).
                 <br/>• <b>📷 🌕 (Camarita y Luna)</b>: Indica que en los próximos 4 días hay una ventana fotográfica óptima para fotografiar la Luna saliendo durante el atardecer.
@@ -638,17 +828,24 @@ class MainActivity : ComponentActivity() {
               </li>
             </ul>
 
-            <h4 style="color:#2B6CB0;">3. ⚠️ TARJETA DE AVISOS Y ALERTAS ADVERSAS AEMET</h4>
+            <h4 style="color:#2B6CB0;">3. ⚠️ TARJETA DE AVISOS Y PREVISIÓN 7 DÍAS</h4>
             <ul>
-              <li>Ubicada en la pantalla principal de la app entre la previsión de 7 días y la gráfica por horas.</li>
-              <li>Combina los <b>Avisos Oficiales CAP de AEMET</b> con la evaluación detallada de lluvia, viento y tormentas.</li>
-              <li>Muestra tarjetas distintivas:
-                <br/>• 🟢 <b>Sin avisos meteorológicos adversos previstos</b>.
-                <br/>• 🟡 <b>Aviso Amarillo</b>: Riesgo moderado / precaución.
-                <br/>• 🟠 <b>Aviso Naranja</b>: Riesgo importante / estar preparado.
-                <br/>• 🔴 <b>Aviso Rojo</b>: Riesgo extremo / tomar precauciones máximas.
+              <li><b>Tarjetas de Previsión 7 Días</b>: Si la AEMET emite un aviso para un día en concreto, <b>la tarjeta de ese día específico en la app se enmarca con el color del aviso oficial</b> (<b>🔴 ROJO</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLO</b> para riesgo moderado).</li>
+              <li><b>Tarjeta de Avisos AEMET (Fenómenos Adversos)</b>: Ubicada en la pantalla principal. Muestra el desglose oficial de riesgos meteorológicos (lluvia, viento, tormentas) con sus colores y descripciones oficiales.</li>
+            </ul>
+
+            <h4 style="color:#2B6CB0;">4. 🗺️ MAPAS OFICIALES AEMET Y VISUALIZACIÓN</h4>
+            <ul>
+              <li>Accede desde el botón <b>🗺️ Mapas</b> en el encabezado.</li>
+              <li><b>7 Vistas Interactivas AEMET</b>:
+                <br/>• ⚠️ <b>Avisos</b>: Mapa general de avisos meteorológicos en España.
+                <br/>• 🌧️ <b>Radar de Lluvia</b>: Observación en tiempo real del mapa de precipitaciones.
+                <br/>• 🏖️ <b>Playas</b>: Predicción del tiempo y estado del mar en playas.
+                <br/>• 🛰️ <b>Satélite Meteosat</b>: Imágenes de satélite Meteosat actualizadas.
+                <br/>• 🌡️ <b>Temperaturas y Municipios</b>: Predicción por municipios y temperaturas.
+                <br/>• 🔥 <b>Incendios</b>: Riesgo meteorológico de incendios forestales.
+                <br/>• ⚡ <b>Rayos y Tormentas</b>: Mapa de descargas eléctricas y tormentas.
               </li>
-              <li>Al pulsar sobre la tarjeta o en el botón <b>🔔 Avisos</b> del encabezado, se despliega el resumen completo de fenómenos adversos por día.</li>
             </ul>
 
             <h4 style="color:#2B6CB0;">4. ⏱️ PREVISIÓN POR HORAS, ASTRONOMÍA Y MAREAS</h4>
@@ -1055,15 +1252,24 @@ class MainActivity : ComponentActivity() {
         return list
     }
 
-    private fun createSevenDayCard(d: DailySummary): View {
+    private fun createSevenDayCard(d: DailySummary, warningLevel: String? = null): View {
         val isWeekend = d.date.dayOfWeek.value >= 6 || d.dayName == "S" || d.dayName == "D"
-        val bgColor = if (isWeekend) Color.parseColor("#EBF8FF") else Color.parseColor("#FFFFFF")
-        val strokeColor = if (isWeekend) Color.parseColor("#BEE3F8") else Color.parseColor("#E2E8F0")
+
+        val (bgColor, strokeColor, strokeWidthDp) = when (warningLevel?.uppercase()) {
+            "ROJO" -> Triple(Color.parseColor("#FEE2E2"), Color.parseColor("#EF4444"), 2)
+            "NARANJA" -> Triple(Color.parseColor("#FFEDD5"), Color.parseColor("#F97316"), 2)
+            "AMARILLO" -> Triple(Color.parseColor("#FEF9C3"), Color.parseColor("#EAB308"), 2)
+            else -> Triple(
+                if (isWeekend) Color.parseColor("#EBF8FF") else Color.parseColor("#FFFFFF"),
+                if (isWeekend) Color.parseColor("#BEE3F8") else Color.parseColor("#E2E8F0"),
+                1
+            )
+        }
 
         val cardBg = GradientDrawable().apply {
             setColor(bgColor)
             cornerRadius = dp(12).toFloat()
-            setStroke(dp(1), strokeColor)
+            setStroke(dp(strokeWidthDp), strokeColor)
         }
 
         val container = LinearLayout(this).apply {
@@ -1295,6 +1501,14 @@ class MainActivity : ComponentActivity() {
         contentLayout.addView(sourceAemetView)
         contentLayout.addView(sourceBackupView)
 
+        // Tarjeta de Avisos AEMET (Fenómenos Adversos)
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+        val code = prefs.getString("code", "11023") ?: "11023"
+        val lat = prefs.getFloat("lat", 36.4578f).toDouble()
+        val lon = prefs.getFloat("lon", -5.9272f).toDouble()
+
+        val aemetWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(this, code, lat, lon, dailySummaries)
+
         // Resumen 7 Días en la parte superior
         if (dailySummaries.isNotEmpty()) {
             val tvSummaryTitle = TextView(this).apply {
@@ -1316,7 +1530,17 @@ class MainActivity : ComponentActivity() {
             }
 
             for (day in dailySummaries) {
-                val card = createSevenDayCard(day)
+                val dayWarning = aemetWarnings.firstOrNull { w ->
+                    w.levelColor != "VERDE" && (
+                        (w.date != null && w.date == day.date) ||
+                        (w.date == null && (
+                            (day.fullDayLabel.startsWith("Hoy") && w.dayLabel.startsWith("Hoy")) ||
+                            (day.fullDayLabel.startsWith("Mañana") && w.dayLabel.startsWith("Mañana")) ||
+                            w.dayLabel.contains("(${day.date.dayOfMonth}/${day.date.monthValue})")
+                        ))
+                    )
+                }
+                val card = createSevenDayCard(day, dayWarning?.levelColor)
                 card.setOnClickListener {
                     scrollToDayHeader(day.fullDayLabel)
                 }
@@ -1326,13 +1550,6 @@ class MainActivity : ComponentActivity() {
             contentLayout.addView(summaryScroll)
         }
 
-        // Tarjeta de Avisos AEMET (Fenómenos Adversos)
-        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-        val code = prefs.getString("code", "11023") ?: "11023"
-        val lat = prefs.getFloat("lat", 36.4578f).toDouble()
-        val lon = prefs.getFloat("lon", -5.9272f).toDouble()
-
-        val aemetWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(this, code, lat, lon, dailySummaries)
         val aemetWarningsCard = createAemetWarningsCard(aemetWarnings)
         contentLayout.addView(aemetWarningsCard)
 

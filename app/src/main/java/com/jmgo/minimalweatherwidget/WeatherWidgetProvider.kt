@@ -375,11 +375,33 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                         }
                     }
 
-                    // Obtenemos avisos AEMET / meteorológicos para resaltar por día individual
+                    // Obtenemos avisos AEMET / meteorológicos para resaltar la línea por día individual
                     var multiDayWarnings: List<WeatherNotificationHelper.AemetDayWarning> = emptyList()
                     try {
+                        val widgetDailySummaries = daysData.mapIndexed { index, d ->
+                            val date = java.time.LocalDate.now().plusDays(index.toLong())
+                            val fullLabel = when (index) {
+                                0 -> "Hoy"
+                                1 -> "Mañana"
+                                else -> "${d.dayName} (${date.dayOfMonth}/${date.monthValue})"
+                            }
+                            MainActivity.DailySummary(
+                                date = date,
+                                dayName = d.dayName,
+                                fullDayLabel = fullLabel,
+                                icon = d.icon,
+                                windText = d.windText,
+                                windSpeedVal = d.windSpeedVal,
+                                maxTemp = d.maxTemp,
+                                minTemp = d.minTemp,
+                                rainStr = d.rainStr,
+                                uvStart = d.uvStart,
+                                uvEnd = d.uvEnd
+                            )
+                        }
+
                         multiDayWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(
-                            context, locInfo.municipioCode, locInfo.lat, locInfo.lon
+                            context, locInfo.municipioCode, locInfo.lat, locInfo.lon, widgetDailySummaries
                         )
                     } catch (e: Exception) {
                         // Fallback silencioso
@@ -429,28 +451,24 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        // 1. Consultar avisos de AEMET
+        val targetDate = java.time.LocalDate.now().plusDays(dayIndex.toLong())
+
         for (w in multiDayWarnings) {
-            val matchesDay = when (dayIndex) {
-                0 -> w.dayLabel.startsWith("Hoy", ignoreCase = true) || w.dayLabel.contains(dayForecast.dayName)
-                1 -> w.dayLabel.startsWith("Mañana", ignoreCase = true) || w.dayLabel.contains(dayForecast.dayName)
-                else -> w.dayLabel.contains(dayForecast.dayName)
+            if (w.levelColor == "VERDE") continue
+
+            val matchesDay = if (w.date != null) {
+                w.date == targetDate
+            } else {
+                when (dayIndex) {
+                    0 -> w.dayLabel.startsWith("Hoy", ignoreCase = true)
+                    1 -> w.dayLabel.startsWith("Mañana", ignoreCase = true)
+                    else -> w.dayLabel.contains("(${targetDate.dayOfMonth}/${targetDate.monthValue})")
+                }
             }
+
             if (matchesDay) {
                 updateIfHigher(w.levelColor)
             }
-        }
-
-        // 2. Evaluamos también los propios valores meteorológicos procesados para el día
-        val rainVal = dayForecast.rainStr.replace("💧", "").trim().toDoubleOrNull() ?: 0.0
-        val windVal = dayForecast.windSpeedVal
-
-        if (rainVal >= 40.0 || windVal >= 90) {
-            updateIfHigher("ROJO")
-        } else if (rainVal >= 25.0 || windVal >= 70) {
-            updateIfHigher("NARANJA")
-        } else if (rainVal >= 10.0 || windVal >= 35 || dayForecast.icon == "⛈️") {
-            updateIfHigher("AMARILLO")
         }
 
         return highestLevel
@@ -475,6 +493,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val rootBg = if (isDark) R.drawable.bg_widget else R.drawable.bg_widget_light
 
         val cardIds = listOf(R.id.card0, R.id.card1, R.id.card2, R.id.card3)
+        val alertLineIds = listOf(R.id.alertLine0, R.id.alertLine1, R.id.alertLine2, R.id.alertLine3)
         val iconIds = listOf(R.id.icon0, R.id.icon1, R.id.icon2, R.id.icon3)
         val dayIds = listOf(R.id.day0, R.id.day1, R.id.day2, R.id.day3)
         val windIds = listOf(R.id.wind0, R.id.wind1, R.id.wind2, R.id.wind3)
@@ -517,37 +536,34 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
                     val warningLevel = getWarningLevelForDay(i, d, multiDayWarnings)
 
-                    val (cardBg, dayTextColor) = when (warningLevel) {
-                        "ROJO" -> Pair(
-                            if (isDark) R.drawable.bg_day_alert_red_dark else R.drawable.bg_day_alert_red_light,
-                            if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#DC2626")
-                        )
-                        "NARANJA" -> Pair(
-                            if (isDark) R.drawable.bg_day_alert_orange_dark else R.drawable.bg_day_alert_orange_light,
-                            if (isDark) Color.parseColor("#FF9F0A") else Color.parseColor("#D97706")
-                        )
-                        "AMARILLO" -> Pair(
-                            if (isDark) R.drawable.bg_day_alert_yellow_dark else R.drawable.bg_day_alert_yellow_light,
-                            if (isDark) Color.parseColor("#FFD60A") else Color.parseColor("#CA8A04")
-                        )
-                        else -> {
-                            val isWeekend = (d.dayName == "S" || d.dayName == "D")
-                            if (isWeekend) {
-                                Pair(
-                                    if (isDark) R.drawable.bg_weekend_dark else R.drawable.bg_weekend_light,
-                                    if (isDark) Color.parseColor("#ED8936") else Color.parseColor("#DD6B20")
-                                )
-                            } else {
-                                Pair(
-                                    0,
-                                    if (isDark) Color.parseColor("#FFD700") else Color.parseColor("#D69E2E")
-                                )
-                            }
+                    if (warningLevel != null) {
+                        val lineBg = when (warningLevel) {
+                            "ROJO" -> R.drawable.bg_line_alert_red
+                            "NARANJA" -> R.drawable.bg_line_alert_orange
+                            "AMARILLO" -> R.drawable.bg_line_alert_yellow
+                            else -> 0
                         }
+                        if (lineBg != 0) {
+                            views.setViewVisibility(alertLineIds[i], android.view.View.VISIBLE)
+                            views.setInt(alertLineIds[i], "setBackgroundResource", lineBg)
+                        } else {
+                            views.setViewVisibility(alertLineIds[i], android.view.View.GONE)
+                        }
+                    } else {
+                        views.setViewVisibility(alertLineIds[i], android.view.View.GONE)
                     }
 
-                    views.setInt(cardIds[i], "setBackgroundResource", cardBg)
-                    views.setTextColor(dayIds[i], dayTextColor)
+                    val isWeekend = (d.dayName == "S" || d.dayName == "D")
+                    if (isWeekend) {
+                        val bgRes = if (isDark) R.drawable.bg_weekend_dark else R.drawable.bg_weekend_light
+                        views.setInt(cardIds[i], "setBackgroundResource", bgRes)
+                        val dayColor = if (isDark) Color.parseColor("#ED8936") else Color.parseColor("#DD6B20")
+                        views.setTextColor(dayIds[i], dayColor)
+                    } else {
+                        views.setInt(cardIds[i], "setBackgroundResource", 0)
+                        val dayColor = if (isDark) Color.parseColor("#FFD700") else Color.parseColor("#D69E2E")
+                        views.setTextColor(dayIds[i], dayColor)
+                    }
 
                     val windSpeed = if (d.windSpeedVal > 0) d.windSpeedVal else {
                         d.windText.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0

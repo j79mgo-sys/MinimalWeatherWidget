@@ -669,7 +669,8 @@ object WeatherNotificationHelper {
         val dayLabel: String,
         val levelColor: String,
         val levelEmoji: String,
-        val description: String
+        val description: String,
+        val date: java.time.LocalDate? = null
     )
 
     fun fetchAemetMultiDayWarnings(
@@ -679,7 +680,7 @@ object WeatherNotificationHelper {
         lon: Double,
         dailySummaries: List<MainActivity.DailySummary> = emptyList()
     ): List<AemetDayWarning> {
-        val warningsMap = mutableMapOf<String, AemetDayWarning>()
+        val warningsMap = mutableMapOf<java.time.LocalDate, AemetDayWarning>()
         val apiKey = WeatherWidgetProvider.getAemetApiKey(context)
         val provCode = if (municipioCode.length >= 2) municipioCode.substring(0, 2) else "11"
 
@@ -699,7 +700,7 @@ object WeatherNotificationHelper {
                 } else if (rainVal >= 25.0 || windVal >= 70) {
                     level = "NARANJA"
                     emoji = "🟠"
-                } else if (rainVal >= 10.0 || windVal >= 35 || d.icon == "⛈️") {
+                } else if (rainVal >= 15.0 || windVal >= 50 || d.icon == "⛈️") {
                     level = "AMARILLO"
                     emoji = "🟡"
                 }
@@ -707,13 +708,13 @@ object WeatherNotificationHelper {
                 if (level != "VERDE") {
                     if (rainVal >= 25.0) {
                         descs.add("Lluvia muy intensa de ${rainVal.toInt()} mm (acumulaciones significativas)")
-                    } else if (rainVal >= 10.0) {
+                    } else if (rainVal >= 15.0) {
                         descs.add("Lluvia de ${rainVal.toInt()} mm")
                     }
 
                     if (windVal >= 70) {
                         descs.add("Rachas de viento muy fuertes de $windVal km/h")
-                    } else if (windVal >= 35) {
+                    } else if (windVal >= 50) {
                         descs.add("Viento fuerte de $windVal km/h")
                     }
 
@@ -728,12 +729,12 @@ object WeatherNotificationHelper {
                     }
 
                     val finalDesc = if (descs.isNotEmpty()) descs.joinToString(", ") else "Previsión de fenómenos adversos"
-                    warningsMap[dayDisplayLabel] = AemetDayWarning(dayDisplayLabel, level, emoji, finalDesc)
+                    warningsMap[d.date] = AemetDayWarning(dayDisplayLabel, level, emoji, finalDesc, date = d.date)
                 }
             }
         }
 
-        // 1. Intentar obtener Avisos Oficiales CAP de AEMET por provincia/zona (ej. 11 = Cádiz, 41 = Sevilla, etc.)
+        // 2. Consultar Avisos Oficiales CAP de AEMET por provincia/zona (ej. 11 = Cádiz, 41 = Sevilla, etc.)
         if (provCode.isNotBlank() && apiKey.isNotBlank()) {
             try {
                 val capStep1Url = "https://opendata.aemet.es/opendata/api/avisos_cap/ultimoest/area/$provCode/?api_key=${apiKey.trim()}"
@@ -747,9 +748,10 @@ object WeatherNotificationHelper {
                         if (capXmlResp != null && capXmlResp.contains("<info>")) {
                             val capParsed = parseAemetCapXml(capXmlResp)
                             for (capW in capParsed) {
-                                val existing = warningsMap[capW.dayLabel]
+                                val wDate = capW.date ?: continue
+                                val existing = warningsMap[wDate]
                                 if (existing == null || isHigherLevel(capW.levelColor, existing.levelColor)) {
-                                    warningsMap[capW.dayLabel] = capW
+                                    warningsMap[wDate] = capW
                                 }
                             }
                         }
@@ -826,28 +828,27 @@ object WeatherNotificationHelper {
                                 var emoji = "🟢"
                                 val descs = mutableListOf<String>()
 
-                                if (maxRacha >= 90 || rainMm >= 40.0) {
+                                if (maxRacha >= 120 || rainMm >= 60.0) {
                                     level = "ROJO"
                                     emoji = "🔴"
-                                } else if (maxRacha >= 70 || rainMm >= 25.0) {
+                                } else if (maxRacha >= 90 || rainMm >= 25.0) {
                                     level = "NARANJA"
                                     emoji = "🟠"
-                                } else if (maxRacha >= 40 || rainMm >= 10.0 || maxProb >= 80 || skyCode.contains("87") || skyCode.contains("88") || skyCode.startsWith("3") || skyDesc.contains("tormenta", ignoreCase = true) || skyDesc.contains("lluvia", ignoreCase = true)) {
+                                } else if (maxRacha >= 70 || rainMm >= 15.0 || skyCode.contains("87") || skyCode.contains("88") || skyCode.startsWith("3") || skyDesc.contains("tormenta", ignoreCase = true)) {
                                     level = "AMARILLO"
                                     emoji = "🟡"
                                 }
 
                                 if (level != "VERDE") {
-                                    if (maxRacha >= 40) descs.add("Rachas de viento de $maxRacha km/h")
-                                    if (rainMm >= 10.0) descs.add("Lluvia de ${rainMm.toInt()} mm ($maxProb% prob.)")
-                                    else if (maxProb >= 80) descs.add("Probabilidad de lluvia del $maxProb%")
+                                    if (maxRacha >= 70) descs.add("Rachas de viento de $maxRacha km/h")
+                                    if (rainMm >= 15.0) descs.add("Lluvia de ${rainMm.toInt()} mm")
                                     if (skyDesc.contains("tormenta", ignoreCase = true) || skyCode.startsWith("3")) descs.add(skyDesc)
 
                                     val finalDesc = if (descs.isNotEmpty()) descs.joinToString(", ") else skyDesc.ifBlank { "Fenómeno adverso AEMET" }
-                                    val newW = AemetDayWarning(dayLabel, level, emoji, finalDesc)
-                                    val existing = warningsMap[dayLabel]
+                                    val newW = AemetDayWarning(dayLabel, level, emoji, finalDesc, date = date)
+                                    val existing = warningsMap[date]
                                     if (existing == null || isHigherLevel(level, existing.levelColor)) {
-                                        warningsMap[dayLabel] = newW
+                                        warningsMap[date] = newW
                                     }
                                 }
                             }
@@ -855,7 +856,7 @@ object WeatherNotificationHelper {
                     }
                 }
             } catch (e: Exception) {
-                //
+                // Silencioso
             }
         }
 
@@ -880,27 +881,27 @@ object WeatherNotificationHelper {
                 var emoji = "🟢"
                 val descs = mutableListOf<String>()
 
-                if (d.windSpeedVal >= 90 || rainVal >= 40.0) {
+                if (d.windSpeedVal >= 90 || rainVal >= 60.0) {
                     level = "ROJO"
                     emoji = "🔴"
                 } else if (d.windSpeedVal >= 70 || rainVal >= 25.0) {
                     level = "NARANJA"
                     emoji = "🟠"
-                } else if (d.windSpeedVal >= 40 || rainVal >= 10.0 || d.icon == "⛈️" || d.icon == "🌧️") {
+                } else if (d.windSpeedVal >= 50 || rainVal >= 15.0 || d.icon == "⛈️") {
                     level = "AMARILLO"
                     emoji = "🟡"
                 }
 
                 if (level != "VERDE") {
-                    if (d.windSpeedVal >= 40) descs.add("Viento de ${d.windSpeedVal} km/h")
-                    if (rainVal >= 10.0) descs.add("Lluvia de $rainVal mm")
+                    if (d.windSpeedVal >= 50) descs.add("Viento de ${d.windSpeedVal} km/h")
+                    if (rainVal >= 15.0) descs.add("Lluvia de $rainVal mm")
                     if (d.icon == "⛈️") descs.add("Riesgo de Tormenta")
 
                     val finalDesc = if (descs.isNotEmpty()) descs.joinToString(", ") else "Previsión de tiempo adverso"
-                    val newW = AemetDayWarning(dayLabel, level, emoji, finalDesc)
-                    val existing = warningsMap[dayLabel]
+                    val newW = AemetDayWarning(dayLabel, level, emoji, finalDesc, date = date)
+                    val existing = warningsMap[date]
                     if (existing == null || isHigherLevel(level, existing.levelColor)) {
-                        warningsMap[dayLabel] = newW
+                        warningsMap[date] = newW
                     }
                 }
             }
@@ -908,7 +909,7 @@ object WeatherNotificationHelper {
             //
         }
 
-        return warningsMap.values.toList()
+        return warningsMap.values.sortedBy { it.date ?: java.time.LocalDate.now() }
     }
 
     private fun isHigherLevel(newLevel: String, oldLevel: String): Boolean {
