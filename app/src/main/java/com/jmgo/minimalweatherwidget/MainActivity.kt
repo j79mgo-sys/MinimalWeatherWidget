@@ -816,15 +816,14 @@ class MainActivity : ComponentActivity() {
             <h4 style="color:#2B6CB0;">2. 📱 WIDGETS DE PANTALLA DE INICIO (MODO CLARO Y OSCURO)</h4>
             <ul>
               <li><b>Widgets de 4 Días Adaptativos</b>: Consulta el tiempo actual y de los próximos días directamente en tu pantalla de inicio. Disponible en tema Oscuro y Claro.</li>
-              <li><b>⚠️ LÍNEA DE AVISO AEMET BAJO EL DÍA</b>: Si la AEMET emite un aviso para un día en concreto, <b>aparece una línea de color destacada justo debajo del día y su icono</b> (<b>🔴 ROJA</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLA</b> para riesgo moderado) manteniendo el fondo del widget limpio.</li>
+              <li><b>⚠️ CAMPANITA DE AVISO AEMET EN LA FILA DEL VIENTO</b>: Si la AEMET emite un aviso para un día en concreto, <b>aparece una campanita 🔔 en la fila del viento al lado de la flecha y velocidad</b> (<b>🔴 ROJA</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLA</b> para riesgo moderado) manteniendo el fondo del widget limpio.</li>
               <li><b>🗓️ Destacado de Fin de Semana</b>: Las columnas de Sábado (<b>S</b>) y Domingo (<b>D</b>) incluyen un fondo redondeado suave para distinguirlos rápidamente.</li>
               <li><b>Simbología del Widget</b>:
                 <br/>• <i>Cabecera</i>: Municipio, temperatura actual e índice UV (si UV ≥ 3).
                 <br/>• <b>📷 🌕 (Camarita y Luna)</b>: Indica que en los próximos 4 días hay una ventana fotográfica óptima para fotografiar la Luna saliendo durante el atardecer.
                 <br/>• <b>💧 Litros de Precipitación</b>: Muestra la precipitación prevista en mm por día (acumulación real en litros/m²).
                 <br/>• <b>Horas + ☀️ (ej: 12/16 ☀️)</b>: Rango horario de inicio (arriba) y fin (abajo) de radiación UV alta (≥ 3).
-                <br/>• <i>Colores de Temperatura</i>: Rojo (Máx ≥ 30 °C), Azul (Mín ≤ 10 °C).
-                <br/>• <i>Colores de Viento</i>: Flechas con barras de intensidad (ej: ↗ ||| 41 km/h) marcadas en rojo si superan 30 km/h.
+                <br/>• <i>Colores de Viento</i>: Flechas con velocidad (ej: ↗ 41 km/h) marcadas en rojo si superan 30 km/h.
               </li>
             </ul>
 

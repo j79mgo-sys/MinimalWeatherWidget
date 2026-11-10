@@ -493,7 +493,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val rootBg = if (isDark) R.drawable.bg_widget else R.drawable.bg_widget_light
 
         val cardIds = listOf(R.id.card0, R.id.card1, R.id.card2, R.id.card3)
-        val alertLineIds = listOf(R.id.alertLine0, R.id.alertLine1, R.id.alertLine2, R.id.alertLine3)
+        val alertBellIds = listOf(R.id.alertBell0, R.id.alertBell1, R.id.alertBell2, R.id.alertBell3)
         val iconIds = listOf(R.id.icon0, R.id.icon1, R.id.icon2, R.id.icon3)
         val dayIds = listOf(R.id.day0, R.id.day1, R.id.day2, R.id.day3)
         val windIds = listOf(R.id.wind0, R.id.wind1, R.id.wind2, R.id.wind3)
@@ -537,20 +537,21 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     val warningLevel = getWarningLevelForDay(i, d, multiDayWarnings)
 
                     if (warningLevel != null) {
-                        val lineBg = when (warningLevel) {
-                            "ROJO" -> R.drawable.bg_line_alert_red
-                            "NARANJA" -> R.drawable.bg_line_alert_orange
-                            "AMARILLO" -> R.drawable.bg_line_alert_yellow
+                        val bellColor = when (warningLevel) {
+                            "ROJO" -> if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#DC2626")
+                            "NARANJA" -> if (isDark) Color.parseColor("#FF9F0A") else Color.parseColor("#DD6B20")
+                            "AMARILLO" -> if (isDark) Color.parseColor("#FFD60A") else Color.parseColor("#D69E2E")
                             else -> 0
                         }
-                        if (lineBg != 0) {
-                            views.setViewVisibility(alertLineIds[i], android.view.View.VISIBLE)
-                            views.setInt(alertLineIds[i], "setBackgroundResource", lineBg)
+                        if (bellColor != 0) {
+                            views.setViewVisibility(alertBellIds[i], android.view.View.VISIBLE)
+                            views.setTextViewText(alertBellIds[i], "🔔")
+                            views.setTextColor(alertBellIds[i], bellColor)
                         } else {
-                            views.setViewVisibility(alertLineIds[i], android.view.View.GONE)
+                            views.setViewVisibility(alertBellIds[i], android.view.View.GONE)
                         }
                     } else {
-                        views.setViewVisibility(alertLineIds[i], android.view.View.GONE)
+                        views.setViewVisibility(alertBellIds[i], android.view.View.GONE)
                     }
 
                     val isWeekend = (d.dayName == "S" || d.dayName == "D")
@@ -644,53 +645,62 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     private fun sanitizeWidgetWind(raw: String): String {
         return raw.replace("\n", " ")
             .replace("km/h", "", ignoreCase = true)
+            .replace("|", "")
             .replace(Regex("\\s+"), " ")
             .trim()
+    }
+
+    private fun safeGetDouble(prefs: android.content.SharedPreferences, key: String, defaultVal: Double): Double {
+        return try {
+            prefs.getFloat(key, defaultVal.toFloat()).toDouble()
+        } catch (_: Exception) {
+            try {
+                prefs.getString(key, null)?.toDoubleOrNull() ?: defaultVal
+            } catch (_: Exception) {
+                defaultVal
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
     fun resolveLocationAndMunicipio(context: Context): LocationData {
         val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-        val isManual = prefs.getBoolean("manual_location", false)
-        val savedCode = prefs.getString("code", "11023") ?: "11023"
-        val savedCity = prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia"
-        val savedLat = prefs.getFloat("lat", 36.4578f).toDouble()
-        val savedLon = prefs.getFloat("lon", -5.9272f).toDouble()
+        val isManual = try { prefs.getBoolean("manual_location", false) } catch (_: Exception) { false }
+        val savedCode = try { prefs.getString("code", "11023") ?: "11023" } catch (_: Exception) { "11023" }
+        val savedCity = try { prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia" } catch (_: Exception) { "Medina Sidonia" }
+        val savedLat = safeGetDouble(prefs, "lat", 36.4578)
+        val savedLon = safeGetDouble(prefs, "lon", -5.9272)
 
         if (isManual) {
             return LocationData(savedLat, savedLon, savedCity, savedCode)
         }
 
-        val hasPerm = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasPerm = try {
+            context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        } catch (_: Exception) {
+            false
+        }
 
         if (!hasPerm) return LocationData(savedLat, savedLon, savedCity, savedCode)
 
-        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         var bestLoc: Location? = null
-        for (provider in lm.getProviders(true)) {
-            val l = lm.getLastKnownLocation(provider) ?: continue
-            if (bestLoc == null || l.time > bestLoc.time) {
-                bestLoc = l
+        try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            if (lm != null) {
+                for (provider in lm.getProviders(true)) {
+                    val l = try { lm.getLastKnownLocation(provider) } catch (_: Exception) { null } ?: continue
+                    if (bestLoc == null || l.time > bestLoc.time) {
+                        bestLoc = l
+                    }
+                }
             }
-        }
+        } catch (_: Exception) {}
 
         if (bestLoc == null) return LocationData(savedLat, savedLon, savedCity, savedCode)
 
         val lat = bestLoc.latitude
         val lon = bestLoc.longitude
-
-        val recentList = getRecentTowns(context)
-        val nearest = recentList.minByOrNull { distanceKm(lat, lon, it.lat, it.lon) }
-        if (nearest != null && distanceKm(lat, lon, nearest.lat, nearest.lon) < 10.0) {
-            prefs.edit()
-                .putString("city", nearest.name)
-                .putString("code", nearest.code)
-                .putFloat("lat", lat.toFloat())
-                .putFloat("lon", lon.toFloat())
-                .apply()
-            return LocationData(lat, lon, nearest.name, nearest.code)
-        }
 
         val detectedCity = getCityFromGps(context, lat, lon) ?: savedCity
         val resolvedCode = findAemetMunicipioCode(context, detectedCity).ifEmpty { savedCode }
@@ -715,13 +725,30 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
     @Suppress("DEPRECATION")
     private fun getCityFromGps(context: Context, lat: Double, lon: Double): String? {
-        return try {
+        // 1. Android Geocoder principal
+        try {
             val geocoder = Geocoder(context, Locale("es", "ES"))
             val addr = geocoder.getFromLocation(lat, lon, 1)?.firstOrNull()
-            addr?.locality ?: addr?.subAdminArea
-        } catch (e: Exception) {
-            null
-        }
+            val name = addr?.locality ?: addr?.subLocality ?: addr?.subAdminArea
+            if (!name.isNullOrBlank()) return name.trim()
+        } catch (_: Exception) {}
+
+        // 2. Respaldo directo con la API de Geocodificación Inversa de Open-Meteo
+        try {
+            val url = "https://geocoding-api.open-meteo.com/v1/reverse?latitude=$lat&longitude=$lon&count=1&language=es"
+            val resp = httpGet(url, Charset.forName("UTF-8"))
+            if (resp != null) {
+                val json = JSONObject(resp)
+                val results = json.optJSONArray("results")
+                if (results != null && results.length() > 0) {
+                    val r = results.getJSONObject(0)
+                    val name = r.optString("name", "")
+                    if (name.isNotBlank()) return name.trim()
+                }
+            }
+        } catch (_: Exception) {}
+
+        return null
     }
 
     fun fetchAemetForecast(context: Context, municipioCode: String, lat: Double, lon: Double, days: Int = 4): List<DayForecast> {
