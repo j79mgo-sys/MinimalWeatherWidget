@@ -124,7 +124,7 @@ class WeatherNotificationWorker(
             val moonData = MainActivityHelper.calculateAccurateMoonData(dateTomorrow, loc.lat, loc.lon)
             val diffRise = if (moonData.riseTotalMins >= 0) abs(sunData.sunsetTotalMins - moonData.riseTotalMins) else 999
             val diffSet = if (moonData.setTotalMins >= 0) abs(moonData.setTotalMins - sunData.sunriseTotalMins) else 999
-            val isGoodMoon = diffRise <= 60 || diffSet <= 60
+            val isGoodMoon = diffRise <= 90 || diffSet <= 90
             if (isGoodMoon) {
                 alerts.add("📷 🌕 Ventana óptima para fotografiar la Luna (coincidencia Sol/Luna)")
             }

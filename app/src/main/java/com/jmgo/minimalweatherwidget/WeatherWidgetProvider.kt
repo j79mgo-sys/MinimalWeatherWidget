@@ -797,7 +797,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 val sunData = MainActivityHelper.calculateSunTimesStatic(date, lat, lon)
                 val diffRise = if (moonData.riseTotalMins >= 0) abs(sunData.sunsetTotalMins - moonData.riseTotalMins) else 999
                 val diffSet = if (moonData.setTotalMins >= 0) abs(moonData.setTotalMins - sunData.sunriseTotalMins) else 999
-                val isGoodMoon = diffRise <= 60 || diffSet <= 60
+                val isGoodMoon = diffRise <= 90 || diffSet <= 90
 
                 result.add(DayForecast(dayName, icon, windText, speed, maxTemp, minTemp, rainStr, isGoodMoon))
             }
@@ -912,7 +912,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
                 val diffRise = if (moonData.riseTotalMins >= 0) abs(sunsetMins - moonData.riseTotalMins) else 999
                 val diffSet = if (moonData.setTotalMins >= 0) abs(moonData.setTotalMins - sunriseMins) else 999
-                val isGoodMoon = diffRise <= 60 || diffSet <= 60
+                val isGoodMoon = diffRise <= 90 || diffSet <= 90
 
                 list.add(DayForecast(dayName, icon, windText, wSpeed, maxT, minT, rainStr, isGoodMoon, uvMax, uvStart, uvEnd))
             }

@@ -851,7 +851,7 @@ class MainActivity : ComponentActivity() {
             <ul>
               <li><b>Línea Temporal Hora a Hora</b>: Desplazamiento horizontal con el pronóstico de temperatura, estado del cielo, lluvia en mm, velocidad de viento y nivel UV.</li>
               <li><b>🌅 🌇 Sol y Fotoperíodo</b>: Horarios exactos de amanecer, atardecer y horas totales de luz solar.</li>
-              <li><b>🌙 Fases Lunares y Ventana Fotográfica 📷</b>: Horarios de salida/puesta de la Luna y porcentaje de iluminación. Se marca en azul como <b>📷 ¡Óptima!</b> cuando la salida/puesta de la Luna coincide con el atardecer/amanecer solar (±60 min).</li>
+              <li><b>🌙 Fases Lunares y Ventana Fotográfica 📷</b>: Horarios de salida/puesta de la Luna y porcentaje de iluminación. Se marca en azul como <b>📷 ¡Óptima!</b> cuando la salida/puesta de la Luna coincide con el atardecer/amanecer solar (±90 min / 1h 30m).</li>
               <li><b>🌊 Mareas en Zonas Costeras</b>: Muestra las horas y alturas en metros de Pleamar (marea alta) y Bajamar (marea baja).</li>
             </ul>
 
@@ -2202,7 +2202,7 @@ class MainActivity : ComponentActivity() {
 
         if (moonInfo.riseTotalMins >= 0) {
             val diffRise = abs(sun.sunsetTotalMins - moonInfo.riseTotalMins)
-            val isMoonRiseGood = diffRise <= 60
+            val isMoonRiseGood = diffRise <= 90
             list.add(
                 AstroEvent(
                     hourInt = moonInfo.riseHour.coerceIn(0, 23),
@@ -2218,7 +2218,7 @@ class MainActivity : ComponentActivity() {
 
         if (moonInfo.setTotalMins >= 0) {
             val diffSet = abs(moonInfo.setTotalMins - sun.sunriseTotalMins)
-            val isMoonSetGood = diffSet <= 60
+            val isMoonSetGood = diffSet <= 90
             list.add(
                 AstroEvent(
                     hourInt = moonInfo.setHour.coerceIn(0, 23),
