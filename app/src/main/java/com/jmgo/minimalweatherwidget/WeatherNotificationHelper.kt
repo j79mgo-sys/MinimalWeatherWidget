@@ -35,7 +35,16 @@ object WeatherNotificationHelper {
         val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         val notifEnabled = prefs.getBoolean("notif_enabled", false)
 
-        val workManager = WorkManager.getInstance(context)
+        val workManager = try {
+            WorkManager.getInstance(context)
+        } catch (_: Exception) {
+            try {
+                WorkManager.initialize(context.applicationContext, androidx.work.Configuration.Builder().build())
+                WorkManager.getInstance(context)
+            } catch (_: Exception) {
+                return
+            }
+        }
 
         if (notifEnabled) {
             WeatherNotificationWorker.createNotificationChannel(context)
@@ -57,7 +66,14 @@ object WeatherNotificationHelper {
         WeatherNotificationWorker.createNotificationChannel(context)
         val workRequest = OneTimeWorkRequestBuilder<WeatherNotificationWorker>()
             .build()
-        WorkManager.getInstance(context).enqueue(workRequest)
+        try {
+            WorkManager.getInstance(context).enqueue(workRequest)
+        } catch (_: Exception) {
+            try {
+                WorkManager.initialize(context.applicationContext, androidx.work.Configuration.Builder().build())
+                WorkManager.getInstance(context).enqueue(workRequest)
+            } catch (_: Exception) {}
+        }
     }
 
     fun showCurrentAlertsDialog(activity: Activity) {

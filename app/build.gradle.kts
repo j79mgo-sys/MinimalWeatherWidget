@@ -13,18 +13,16 @@ android {
         applicationId = "com.jmgo.minimalweatherwidget"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 8
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
-            }
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
     compileOptions {
