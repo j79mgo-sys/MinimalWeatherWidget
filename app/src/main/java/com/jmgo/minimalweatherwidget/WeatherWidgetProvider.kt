@@ -274,7 +274,12 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     val savedVersion = prefs.getInt("cache_version", 1)
                     val savedDate = prefs.getString("cached_date", "")
                     val currentDateStr = java.time.LocalDate.now().toString()
-                    val isSameDay = (savedDate == currentDateStr)
+                    val nowDate = java.time.LocalDate.now()
+                    val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
+                    val todayExpectedDayName = diasSemana[nowDate.dayOfWeek.value % 7]
+                    val cachedDay0Name = prefs.getString("c_day_0", "") ?: ""
+
+                    val isSameDay = (savedDate == currentDateStr) && (cachedDay0Name == todayExpectedDayName)
                     val lastFetch = if (savedVersion < CACHE_VERSION) 0L else prefs.getLong("last_fetch_time", 0L)
 
                     val currentTime = System.currentTimeMillis()
@@ -347,7 +352,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                         updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
 
                         for (i in 0 until 4) {
-                            val dName = prefs.getString("c_day_$i", "") ?: ""
+                            val targetDate = nowDate.plusDays(i.toLong())
+                            val expectedDayName = diasSemana[targetDate.dayOfWeek.value % 7]
                             val savedTemp = prefs.getString("c_temp_$i", "") ?: ""
                             val parts = savedTemp.split("/")
                             val maxT = parts.getOrNull(0)?.trim() ?: ""
@@ -355,23 +361,21 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             val rawWind = prefs.getString("c_wind_$i", "") ?: ""
                             val savedWindSpeed = prefs.getInt("c_wind_speed_$i", 0)
 
-                            if (dName.isNotEmpty()) {
-                                daysData.add(
-                                    DayForecast(
-                                        dayName = dName,
-                                        icon = prefs.getString("c_icon_$i", "⛅") ?: "⛅",
-                                        windText = sanitizeWidgetWind(rawWind),
-                                        windSpeedVal = savedWindSpeed,
-                                        maxTemp = maxT,
-                                        minTemp = minT,
-                                        rainStr = prefs.getString("c_rain_$i", "") ?: "",
-                                        hasGoodMoonPhoto = false,
-                                        uvMax = prefs.getInt("c_uv_$i", 0),
-                                        uvStart = prefs.getString("c_uv_start_$i", "") ?: "",
-                                        uvEnd = prefs.getString("c_uv_end_$i", "") ?: ""
-                                    )
+                            daysData.add(
+                                DayForecast(
+                                    dayName = expectedDayName,
+                                    icon = prefs.getString("c_icon_$i", "⛅") ?: "⛅",
+                                    windText = sanitizeWidgetWind(rawWind),
+                                    windSpeedVal = savedWindSpeed,
+                                    maxTemp = maxT,
+                                    minTemp = minT,
+                                    rainStr = prefs.getString("c_rain_$i", "") ?: "",
+                                    hasGoodMoonPhoto = false,
+                                    uvMax = prefs.getInt("c_uv_$i", 0),
+                                    uvStart = prefs.getString("c_uv_start_$i", "") ?: "",
+                                    uvEnd = prefs.getString("c_uv_end_$i", "") ?: ""
                                 )
-                            }
+                            )
                         }
                     }
 

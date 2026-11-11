@@ -1083,7 +1083,14 @@ class MainActivity : ComponentActivity() {
                 var sourceUsed = prefs.getString("cached_hourly_source", "Fuente: AEMET + Open-Meteo Marine") ?: "Fuente: AEMET + Open-Meteo Marine"
                 var updateTimeStr = prefs.getString("cached_update_time_str", "--:--") ?: "--:--"
 
-                if (isHourlyCacheValid) {
+                if (!isSameDay) {
+                    // Si ha cambiado el día, purgar la caché del día anterior
+                    prefs.edit()
+                        .remove("cached_hourly_json")
+                        .remove("cached_hourly_date")
+                        .remove("last_hourly_fetch_time")
+                        .apply()
+                } else if (isHourlyCacheValid) {
                     itemsList = loadHourlyCache(prefs)
                 }
 
@@ -1102,15 +1109,35 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val filteredItemsList = filterFutureTimelineItems(itemsList)
                 val dailySummaries = build7DaySummaries(code, lat, lon)
-                lastLoadedItems = itemsList
+                lastLoadedItems = filteredItemsList
 
                 withContext(Dispatchers.Main) {
                     stickyTimeView.text = "Act: $updateTimeStr"
-                    renderTimeline(city, itemsList, sourceUsed, dailySummaries)
+                    renderTimeline(city, filteredItemsList, sourceUsed, dailySummaries)
                 }
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    private fun filterFutureTimelineItems(list: List<TimelineItem>): List<TimelineItem> {
+        if (list.isEmpty()) return emptyList()
+        val nowHour = LocalTime.now().hour
+        val currentMinuteOfDay = nowHour * 60
+
+        return list.filter { item ->
+            if (item.dayLabel == "Hoy") {
+                if (item.isAstroEvent) {
+                    item.sortMinute >= currentMinuteOfDay
+                } else {
+                    val h = item.hour.toIntOrNull() ?: 0
+                    h >= nowHour
+                }
+            } else {
+                true
             }
         }
     }
