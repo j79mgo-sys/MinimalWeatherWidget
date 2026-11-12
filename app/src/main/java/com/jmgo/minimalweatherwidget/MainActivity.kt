@@ -1125,11 +1125,20 @@ class MainActivity : ComponentActivity() {
 
     private fun filterFutureTimelineItems(list: List<TimelineItem>): List<TimelineItem> {
         if (list.isEmpty()) return emptyList()
+        val nowDate = LocalDate.now()
         val nowHour = LocalTime.now().hour
         val currentMinuteOfDay = nowHour * 60
 
         return list.filter { item ->
-            if (item.dayLabel == "Hoy") {
+            val itemDate = try {
+                if (item.itemDate.isNotBlank()) LocalDate.parse(item.itemDate) else null
+            } catch (_: Exception) { null }
+
+            if (itemDate != null && itemDate < nowDate) {
+                return@filter false
+            }
+
+            if (item.dayLabel == "Hoy" || (itemDate != null && itemDate == nowDate)) {
                 if (item.isAstroEvent) {
                     item.sortMinute >= currentMinuteOfDay
                 } else {
@@ -1167,6 +1176,7 @@ class MainActivity : ComponentActivity() {
                 put("wind", item.wind)
                 put("rainLiters", item.rainLiters)
                 put("uv", item.uv)
+                put("itemDate", item.itemDate)
             }
             arr.put(obj)
         }
@@ -1202,7 +1212,8 @@ class MainActivity : ComponentActivity() {
                         temp = obj.optString("temp"),
                         wind = obj.optString("wind"),
                         rainLiters = obj.optString("rainLiters"),
-                        uv = obj.optInt("uv", 0)
+                        uv = obj.optInt("uv", 0),
+                        itemDate = obj.optString("itemDate", "")
                     )
                 )
             }
@@ -1956,6 +1967,8 @@ class MainActivity : ComponentActivity() {
                 val diaObj = diasArr.getJSONObject(d)
                 val fechaStr = diaObj.getString("fecha").substring(0, 10)
                 val date = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                if (date < nowDate) continue
+
                 val dayLabel = when (date) {
                     nowDate -> "Hoy"
                     nowDate.plusDays(1) -> "Mañana (${diasSemana[date.dayOfWeek.value % 7]})"
@@ -1996,7 +2009,8 @@ class MainActivity : ComponentActivity() {
                             isAstroEvent = false,
                             astroTitle = "", astroDetails = "", iconEmoji = "", isGoodPhoto = false,
                             icon = aemetSkyToEmoji(sky), temp = temp, wind = windStr, rainLiters = rainLiters,
-                            uv = uvVal
+                            uv = uvVal,
+                            itemDate = date.toString()
                         )
                     )
                 }
@@ -2014,7 +2028,8 @@ class MainActivity : ComponentActivity() {
                             astroDetails = astro.details,
                             iconEmoji = astro.iconEmoji,
                             isGoodPhoto = astro.isGoodPhoto,
-                            icon = "", temp = "", wind = "", rainLiters = ""
+                            icon = "", temp = "", wind = "", rainLiters = "",
+                            itemDate = date.toString()
                         )
                     )
                 }
@@ -2082,6 +2097,7 @@ class MainActivity : ComponentActivity() {
                 val mInt = minStr.toIntOrNull() ?: 0
                 val date = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
+                if (date < nowDate) continue
                 if (date == nowDate && hInt < nowHour) continue
 
                 val dayLabel = when (date) {
@@ -2106,12 +2122,13 @@ class MainActivity : ComponentActivity() {
                         dayLabel = dayLabel, hour = hourStr, sortMinute = hInt * 60 + mInt, timeStr = "",
                         isAstroEvent = false, astroTitle = "", astroDetails = "", iconEmoji = "", isGoodPhoto = false,
                         icon = icon, temp = temp, wind = windStr, rainLiters = rainLiters,
-                        uv = uvVal
+                        uv = uvVal, itemDate = date.toString()
                     )
                 )
             }
 
             for ((date, dayItems) in mapByDate) {
+                if (date < nowDate) continue
                 val astroEvents = buildAstroAndTideEventsForDay(
                     date, lat, lon, nearCoast,
                     sunMap[date],
@@ -2130,7 +2147,8 @@ class MainActivity : ComponentActivity() {
                             astroDetails = astro.details,
                             iconEmoji = astro.iconEmoji,
                             isGoodPhoto = astro.isGoodPhoto,
-                            icon = "", temp = "", wind = "", rainLiters = ""
+                            icon = "", temp = "", wind = "", rainLiters = "",
+                            itemDate = date.toString()
                         )
                     )
                 }
@@ -2382,7 +2400,8 @@ class MainActivity : ComponentActivity() {
         val temp: String,
         val wind: String,
         val rainLiters: String,
-        val uv: Int = 0
+        val uv: Int = 0,
+        val itemDate: String = ""
     )
 }
 
