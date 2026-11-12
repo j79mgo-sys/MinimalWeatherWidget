@@ -771,14 +771,26 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 .getJSONObject("prediccion")
                 .getJSONArray("dia")
 
+            val aemetByDate = mutableMapOf<LocalDate, JSONObject>()
+            for (i in 0 until diasArray.length()) {
+                val diaObj = diasArray.getJSONObject(i)
+                val fechaStr = diaObj.optString("fecha", "").substring(0, 10)
+                if (fechaStr.length >= 10) {
+                    try {
+                        val d = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        aemetByDate[d] = diaObj
+                    } catch (_: Exception) {}
+                }
+            }
+
             val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
             val result = mutableListOf<DayForecast>()
+            val nowDate = LocalDate.now()
 
-            for (i in 0 until minOf(days, diasArray.length())) {
-                val diaObj = diasArray.getJSONObject(i)
-                val fechaStr = diaObj.getString("fecha").substring(0, 10)
-                val date = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                val dayName = diasSemana[date.dayOfWeek.value % 7]
+            for (idx in 0 until days) {
+                val targetDate = nowDate.plusDays(idx.toLong())
+                val diaObj = aemetByDate[targetDate] ?: continue
+                val dayName = diasSemana[targetDate.dayOfWeek.value % 7]
 
                 val tempObj = diaObj.getJSONObject("temperatura")
                 val maxTemp = tempObj.optString("maxima", "--")
@@ -793,8 +805,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 val (dir, speed) = extractMainWind(diaObj.optJSONArray("viento"))
                 val windText = "${windDirToArrow(dir)} ${windSpeedToBars(speed)}$speed"
 
-                val moonData = MainActivityHelper.calculateAccurateMoonData(date, lat, lon)
-                val sunData = MainActivityHelper.calculateSunTimesStatic(date, lat, lon)
+                val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
+                val sunData = MainActivityHelper.calculateSunTimesStatic(targetDate, lat, lon)
                 val diffRise = if (moonData.riseTotalMins >= 0) abs(sunData.sunsetTotalMins - moonData.riseTotalMins) else 999
                 val diffSet = if (moonData.setTotalMins >= 0) abs(moonData.setTotalMins - sunData.sunriseTotalMins) else 999
                 val isGoodMoon = diffRise <= 90 || diffSet <= 90
@@ -813,7 +825,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     "&current=temperature_2m,uv_index" +
                     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max" +
                     "&hourly=uv_index" +
-                    "&timezone=Europe%2FMadrid&forecast_days=$days"
+                    "&timezone=Europe%2FMadrid&forecast_days=${days + 2}"
             val resp = httpGet(url, Charset.forName("UTF-8")) ?: return Triple(null, emptyList(), 0)
             val json = JSONObject(resp)
 
@@ -833,6 +845,15 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             val sunsets = daily.optJSONArray("sunset")
             val uvs = daily.optJSONArray("uv_index_max")
 
+            val omByDate = mutableMapOf<LocalDate, Int>()
+            for (k in 0 until times.length()) {
+                val fechaStr = times.getString(k).substring(0, 10)
+                try {
+                    val d = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                    omByDate[d] = k
+                } catch (_: Exception) {}
+            }
+
             val hourlyObj = json.optJSONObject("hourly")
             val hourlyTime = hourlyObj?.optJSONArray("time")
             val hourlyUv = hourlyObj?.optJSONArray("uv_index")
@@ -850,11 +871,13 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
             val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
             val list = mutableListOf<DayForecast>()
+            val nowDate = LocalDate.now()
 
-            for (i in 0 until minOf(days, times.length())) {
-                val fechaStr = times.getString(i)
-                val date = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                val dayName = diasSemana[date.dayOfWeek.value % 7]
+            for (idx in 0 until days) {
+                val targetDate = nowDate.plusDays(idx.toLong())
+                val i = omByDate[targetDate] ?: continue
+                val fechaStr = targetDate.toString()
+                val dayName = diasSemana[targetDate.dayOfWeek.value % 7]
 
                 val icon = wmoCodeToEmoji(codes.optInt(i, 0))
                 val maxT = maxs.optDouble(i, 0.0).roundToInt().toString()
@@ -898,8 +921,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     }
                 }
 
-                val moonData = MainActivityHelper.calculateAccurateMoonData(date, lat, lon)
-                val sunData = MainActivityHelper.calculateSunTimesStatic(date, lat, lon)
+                val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
+                val sunData = MainActivityHelper.calculateSunTimesStatic(targetDate, lat, lon)
                 val sunsetIso = sunsets?.optString(i, "") ?: ""
                 val sunsetMins = if (sunsetIso.length >= 16) {
                     val h = sunsetIso.substring(11, 13).toIntOrNull() ?: 18
