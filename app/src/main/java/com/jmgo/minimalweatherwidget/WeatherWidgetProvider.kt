@@ -771,16 +771,9 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 .getJSONObject("prediccion")
                 .getJSONArray("dia")
 
-            val aemetByDate = mutableMapOf<LocalDate, JSONObject>()
+            val aemetDaysList = mutableListOf<JSONObject>()
             for (i in 0 until diasArray.length()) {
-                val diaObj = diasArray.getJSONObject(i)
-                val fechaStr = diaObj.optString("fecha", "").substring(0, 10)
-                if (fechaStr.length >= 10) {
-                    try {
-                        val d = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        aemetByDate[d] = diaObj
-                    } catch (_: Exception) {}
-                }
+                aemetDaysList.add(diasArray.getJSONObject(i))
             }
 
             val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
@@ -789,7 +782,13 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
             for (idx in 0 until days) {
                 val targetDate = nowDate.plusDays(idx.toLong())
-                val diaObj = aemetByDate[targetDate] ?: continue
+                val diaObj = aemetDaysList.firstOrNull { 
+                    try {
+                        val fechaStr = it.optString("fecha", "").substring(0, 10)
+                        LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd")) == targetDate
+                    } catch (_: Exception) { false }
+                } ?: aemetDaysList.getOrNull(idx) ?: continue
+
                 val dayName = diasSemana[targetDate.dayOfWeek.value % 7]
 
                 val tempObj = diaObj.getJSONObject("temperatura")

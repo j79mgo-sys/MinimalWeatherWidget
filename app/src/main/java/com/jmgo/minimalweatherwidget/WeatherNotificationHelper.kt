@@ -297,10 +297,39 @@ object WeatherNotificationHelper {
         val masterSwitch = Switch(activity).apply {
             text = "Activar avisos para el tiempo de mañana"
             textSize = 16f
-            isChecked = prefs.getBoolean("notif_enabled", false)
+            isChecked = prefs.getBoolean("notif_enabled", true)
             setPadding(0, 0, 0, smallPaddingPx)
         }
         container.addView(masterSwitch)
+
+        val allSwitches = mutableListOf<Switch>()
+        allSwitches.add(masterSwitch)
+
+        val bulkButtonsRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, paddingPx)
+        }
+        val btnEnableAll = Button(activity).apply {
+            text = "✅ Activar todos"
+            textSize = 12.5f
+            setOnClickListener {
+                allSwitches.forEach { it.isChecked = true }
+            }
+        }
+        val btnDisableAll = Button(activity).apply {
+            text = "❌ Desactivar todos"
+            textSize = 12.5f
+            setOnClickListener {
+                allSwitches.forEach { it.isChecked = false }
+            }
+        }
+        val bulkParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(4, 0, 4, 0)
+        }
+        bulkButtonsRow.addView(btnEnableAll, bulkParams)
+        bulkButtonsRow.addView(btnDisableAll, bulkParams)
+        container.addView(bulkButtonsRow)
 
         val subtitle = TextView(activity).apply {
             text = "Configura las 11 condiciones independientes. Se notificarán únicamente aquellas que estén activadas y se cumplan para mañana:"
@@ -316,7 +345,7 @@ object WeatherNotificationHelper {
             unitLabel: String,
             prefKeyEnabled: String,
             prefKeyThreshold: String,
-            defaultEnabled: Boolean,
+            defaultEnabled: Boolean = true,
             defaultThreshold: Float,
             isDecimal: Boolean = false
         ): Triple<LinearLayout, Switch, EditText> {
@@ -335,6 +364,7 @@ object WeatherNotificationHelper {
                 textSize = 14f
                 isChecked = prefs.getBoolean(prefKeyEnabled, defaultEnabled)
             }
+            allSwitches.add(sw)
 
             switchRow.addView(sw, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(switchRow)
@@ -379,7 +409,7 @@ object WeatherNotificationHelper {
         }
 
         // Helper para crear fila de condición simple On/Off
-        fun createSimpleSwitchRow(title: String, prefKeyEnabled: String, defaultEnabled: Boolean = false): Switch {
+        fun createSimpleSwitchRow(title: String, prefKeyEnabled: String, defaultEnabled: Boolean = true): Switch {
             val row = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -390,6 +420,7 @@ object WeatherNotificationHelper {
                 textSize = 14f
                 isChecked = prefs.getBoolean(prefKeyEnabled, defaultEnabled)
             }
+            allSwitches.add(sw)
             row.addView(sw, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             container.addView(row)
             return sw
@@ -401,7 +432,7 @@ object WeatherNotificationHelper {
             unitLabel = "km/h",
             prefKeyEnabled = "notif_wind_enabled",
             prefKeyThreshold = "notif_wind_threshold",
-            defaultEnabled = false,
+            defaultEnabled = true,
             defaultThreshold = 35f,
             isDecimal = false
         )
@@ -413,7 +444,7 @@ object WeatherNotificationHelper {
             unitLabel = "ºC",
             prefKeyEnabled = "notif_temp_max_enabled",
             prefKeyThreshold = "notif_temp_max_threshold",
-            defaultEnabled = false,
+            defaultEnabled = true,
             defaultThreshold = 35f,
             isDecimal = false
         )
@@ -425,7 +456,7 @@ object WeatherNotificationHelper {
             unitLabel = "ºC",
             prefKeyEnabled = "notif_temp_min_enabled",
             prefKeyThreshold = "notif_temp_min_threshold",
-            defaultEnabled = false,
+            defaultEnabled = true,
             defaultThreshold = 10f,
             isDecimal = false
         )
@@ -437,7 +468,7 @@ object WeatherNotificationHelper {
             unitLabel = "l (mm) o más",
             prefKeyEnabled = "notif_rain_enabled",
             prefKeyThreshold = "notif_rain_threshold",
-            defaultEnabled = false,
+            defaultEnabled = true,
             defaultThreshold = 1f,
             isDecimal = true
         )
@@ -449,7 +480,7 @@ object WeatherNotificationHelper {
             unitLabel = "o superior",
             prefKeyEnabled = "notif_uv_enabled",
             prefKeyThreshold = "notif_uv_threshold",
-            defaultEnabled = false,
+            defaultEnabled = true,
             defaultThreshold = 3f,
             isDecimal = false
         )
@@ -458,7 +489,8 @@ object WeatherNotificationHelper {
         // 6. Fotografiar la Luna (Ventana óptima)
         val swMoon = createSimpleSwitchRow(
             title = "6. 📷 🌕 Fotografiar la Luna (coincidencia Sol/Luna)",
-            prefKeyEnabled = "notif_moon_enabled"
+            prefKeyEnabled = "notif_moon_enabled",
+            defaultEnabled = true
         )
 
         // 7. Cambio brusco de temperatura respecto a hoy (ej. 6ºC)
@@ -467,7 +499,7 @@ object WeatherNotificationHelper {
             unitLabel = "ºC de variación",
             prefKeyEnabled = "notif_temp_change_enabled",
             prefKeyThreshold = "notif_temp_change_threshold",
-            defaultEnabled = false,
+            defaultEnabled = true,
             defaultThreshold = 6f,
             isDecimal = false
         )
@@ -476,25 +508,29 @@ object WeatherNotificationHelper {
         // 8. Tormentas o Granizo
         val swStorm = createSimpleSwitchRow(
             title = "8. ⚡ Riesgo de Tormenta o Granizo",
-            prefKeyEnabled = "notif_storm_enabled"
+            prefKeyEnabled = "notif_storm_enabled",
+            defaultEnabled = true
         )
 
         // 9. Niebla o visibilidad reducida
         val swFog = createSimpleSwitchRow(
             title = "9. 🌫️ Niebla intensa o visibilidad reducida",
-            prefKeyEnabled = "notif_fog_enabled"
+            prefKeyEnabled = "notif_fog_enabled",
+            defaultEnabled = true
         )
 
         // 10. Mareas / Pleamar en costa
         val swTides = createSimpleSwitchRow(
             title = "10. 🌊 Pleamar / Marea alta (en zonas de costa)",
-            prefKeyEnabled = "notif_tides_enabled"
+            prefKeyEnabled = "notif_tides_enabled",
+            defaultEnabled = true
         )
 
         // 11. Avisos oficiales AEMET
         val swAemet = createSimpleSwitchRow(
             title = "11. 📢 Avisos oficiales AEMET (Fenómenos adversos)",
-            prefKeyEnabled = "notif_aemet_warnings_enabled"
+            prefKeyEnabled = "notif_aemet_warnings_enabled",
+            defaultEnabled = true
         )
 
         val btnTest = Button(activity).apply {
