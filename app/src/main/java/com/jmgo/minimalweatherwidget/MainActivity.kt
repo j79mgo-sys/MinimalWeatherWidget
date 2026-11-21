@@ -26,6 +26,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +117,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         WeatherNotificationHelper.scheduleOrCancelWorker(this)
@@ -145,7 +147,7 @@ class MainActivity : ComponentActivity() {
 
         contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(185), dp(16), dp(32))
+            setPadding(dp(16), dp(195), dp(16), dp(32))
         }
 
         sourceAemetView = TextView(this).apply {
@@ -174,8 +176,42 @@ class MainActivity : ComponentActivity() {
             elevation = dp(4).toFloat()
         }
 
-        // Fila 1 (Superior): Hora de actualización a la izquierda | 🔑 AEMET + 🔔 Avisos a la derecha
+        // Fila 1 (Superior): Nombre de ubicación + Estrella favorita
         val row1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(4))
+        }
+
+        stickyTitle = TextView(this).apply {
+            id = android.R.id.text1
+            text = "Cargando..."
+            textSize = 19f
+            setTextColor(Color.parseColor("#1A202C"))
+            typeface = Typeface.DEFAULT_BOLD
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+
+        btnStarSticky = TextView(this).apply {
+            text = "☆"
+            textSize = 24f
+            setTextColor(Color.parseColor("#A0AEC0"))
+            gravity = Gravity.CENTER
+            minHeight = dp(38)
+            minWidth = dp(38)
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { toggleCurrentCityFavorite() }
+        }
+
+        row1.addView(stickyTitle)
+        row1.addView(btnStarSticky)
+
+        // Fila 2 (Intermedia): Hora de actualización a la izquierda | ⚙️ Configuración a la derecha
+        val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(4))
@@ -192,70 +228,40 @@ class MainActivity : ComponentActivity() {
             ).apply { setMargins(0, 0, dp(6), 0) }
         }
 
-        val rightRow1Buttons = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+        val row2Spacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1.0f)
         }
 
-        val btnAemetKey = TextView(this).apply {
-            text = "🔑 AEMET"
+        val btnSettings = TextView(this).apply {
+            text = "⚙️ Configuración"
             textSize = 12.5f
-            setTextColor(Color.parseColor("#744210"))
+            setTextColor(Color.parseColor("#2D3748"))
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             minHeight = dp(38)
             setPadding(dp(12), dp(6), dp(12), dp(6))
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#FEFCBF"))
+                setColor(Color.parseColor("#EDF2F7"))
                 cornerRadius = dp(10).toFloat()
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { showAemetKeyDialog() }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, dp(6), 0) }
-            layoutParams = lp
+            setOnClickListener { showMasterSettingsDialog() }
         }
 
-        val btnNotif = TextView(this).apply {
-            text = "🔔 Avisos"
-            textSize = 12.5f
-            setTextColor(Color.parseColor("#276749"))
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            minHeight = dp(38)
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#F0FFF4"))
-                cornerRadius = dp(10).toFloat()
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                WeatherNotificationHelper.showNotificationSettingsDialog(this@MainActivity) {
-                    checkAndRequestNotificationPermission()
-                }
-            }
-        }
+        row2.addView(stickyTimeView)
+        row2.addView(row2Spacer)
+        row2.addView(btnSettings)
 
-        rightRow1Buttons.addView(btnAemetKey)
-        rightRow1Buttons.addView(btnNotif)
-
-        row1.addView(stickyTimeView)
-        row1.addView(rightRow1Buttons)
-
-        // Fila 2 (Intermedia): Ubicación + Mapas a la izquierda | Ayuda a la derecha
-        val row2 = LinearLayout(this).apply {
+        // Fila 3 (Inferior): Ubicación, Mapas, Embalses, Ayuda
+        val row3 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(2), 0, dp(4))
+            setPadding(0, dp(2), 0, dp(2))
         }
 
         val btnChangeCity = TextView(this).apply {
-            text = "📍 Ubicación"
+            text = "📍 Ubic."
             textSize = 12.5f
             setTextColor(Color.parseColor("#3182CE"))
             typeface = Typeface.DEFAULT_BOLD
@@ -298,14 +304,10 @@ class MainActivity : ComponentActivity() {
             layoutParams = lp
         }
 
-        val row2Spacer = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 0, 1.0f)
-        }
-
-        val btnHelpManual = TextView(this).apply {
-            text = "❓ Ayuda"
+        val btnEmbalses = TextView(this).apply {
+            text = "💧 Embalses"
             textSize = 12.5f
-            setTextColor(Color.parseColor("#2C5282"))
+            setTextColor(Color.parseColor("#2B6CB0"))
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             minHeight = dp(38)
@@ -316,46 +318,17 @@ class MainActivity : ComponentActivity() {
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { showHelpManualDialog() }
+            setOnClickListener { showReservoirsCommunitiesDialog() }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, dp(6), 0) }
+            layoutParams = lp
         }
 
-        row2.addView(btnChangeCity)
-        row2.addView(btnMaps)
-        row2.addView(row2Spacer)
-        row2.addView(btnHelpManual)
-
-        // Fila 3 (Inferior): Ubicación Actual + Estrella Favorita sola en su propia fila
-        val row3 = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(2), 0, dp(2))
-        }
-
-        stickyTitle = TextView(this).apply {
-            id = android.R.id.text1
-            text = "Cargando..."
-            textSize = 19f
-            setTextColor(Color.parseColor("#1A202C"))
-            typeface = Typeface.DEFAULT_BOLD
-            isSingleLine = true
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        }
-
-        btnStarSticky = TextView(this).apply {
-            text = "☆"
-            textSize = 24f
-            setTextColor(Color.parseColor("#A0AEC0"))
-            gravity = Gravity.CENTER
-            minHeight = dp(38)
-            minWidth = dp(38)
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { toggleCurrentCityFavorite() }
-        }
-
-        row3.addView(stickyTitle)
-        row3.addView(btnStarSticky)
+        row3.addView(btnChangeCity)
+        row3.addView(btnMaps)
+        row3.addView(btnEmbalses)
 
         stickyHeaderDay = TextView(this).apply {
             text = ""
@@ -991,29 +964,21 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {}
 
             withContext(Dispatchers.Main) {
-                if (code.isNotEmpty()) {
-                    val newTown = WeatherWidgetProvider.KnownTown(resolvedName, code, lat, lon)
-                    WeatherWidgetProvider.saveRecentTown(this@MainActivity, newTown)
+                val newTown = WeatherWidgetProvider.KnownTown(resolvedName, code, lat, lon)
+                WeatherWidgetProvider.saveRecentTown(this@MainActivity, newTown)
 
-                    val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-                    prefs.edit()
-                        .putBoolean("manual_location", true)
-                        .putString("city", resolvedName)
-                        .putString("code", code)
-                        .putFloat("lat", lat.toFloat())
-                        .putFloat("lon", lon.toFloat())
-                        .putLong("last_fetch_time", 0L)
-                        .putLong("last_hourly_fetch_time", 0L)
-                        .apply()
+                val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putBoolean("manual_location", true)
+                    .putString("city", resolvedName)
+                    .putString("code", code)
+                    .putFloat("lat", lat.toFloat())
+                    .putFloat("lon", lon.toFloat())
+                    .putLong("last_fetch_time", 0L)
+                    .putLong("last_hourly_fetch_time", 0L)
+                    .apply()
 
-                    checkCacheAndLoadData(forceRefresh = true)
-                } else {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Municipio no encontrado")
-                        .setMessage("No se ha encontrado el código oficial AEMET para '$query'. Pruebe seleccionando una sugerencia de la lista.")
-                        .setPositiveButton("OK", null)
-                        .show()
-                }
+                checkCacheAndLoadData(forceRefresh = true)
             }
         }
     }
@@ -1114,7 +1079,7 @@ class MainActivity : ComponentActivity() {
                 lastLoadedItems = filteredItemsList
 
                 withContext(Dispatchers.Main) {
-                    stickyTimeView.text = "Act: $updateTimeStr"
+                    stickyTimeView.text = "Actualizado: $updateTimeStr"
                     renderTimeline(city, filteredItemsList, sourceUsed, dailySummaries)
                 }
             } finally {
@@ -1513,6 +1478,298 @@ class MainActivity : ComponentActivity() {
         }
 
         return container
+    }
+
+    private fun showWeatherProviderDialog() {
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+        val currentProvider = prefs.getString("preferred_provider", "auto") ?: "auto"
+
+        val providers = arrayOf(
+            "📡 Automático / Inteligente (AEMET + Respaldo Open-Meteo)",
+            "🌤️ Open-Meteo Exclusivo (Sin clave AEMET)",
+            "🏛️ AEMET Exclusivo (Oficial)"
+        )
+        val checkedIndex = when (currentProvider) {
+            "open_meteo" -> 1
+            "aemet" -> 2
+            else -> 0
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("🌐 Seleccionar Proveedor Meteorológico")
+            .setSingleChoiceItems(providers, checkedIndex) { dialog, which ->
+                val newProvider = when (which) {
+                    1 -> "open_meteo"
+                    2 -> "aemet"
+                    else -> "auto"
+                }
+                prefs.edit().putString("preferred_provider", newProvider).apply()
+                dialog.dismiss()
+                android.widget.Toast.makeText(this, "Proveedor actualizado. Actualizando...", android.widget.Toast.LENGTH_SHORT).show()
+                checkCacheAndLoadData(forceRefresh = true)
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun showMasterSettingsDialog() {
+        val options = arrayOf(
+            "🔑 Configurar Clave API AEMET",
+            "🔔 Configurar Avisos y Notificaciones",
+            "🌐 Seleccionar Proveedor Meteorológico",
+            "📖 Manual y Guía de Uso (Ayuda)"
+        )
+        AlertDialog.Builder(this)
+            .setTitle("⚙️ Panel de Configuración")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showAemetKeyDialog()
+                    1 -> WeatherNotificationHelper.showNotificationSettingsDialog(this@MainActivity) {
+                        checkAndRequestNotificationPermission()
+                    }
+                    2 -> showWeatherProviderDialog()
+                    3 -> showHelpManualDialog()
+                }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    data class Reservoir(val name: String, val capacityHm3: Double, val storedHm3: Double) {
+        val percentage: Int get() = if (capacityHm3 > 0) ((storedHm3 / capacityHm3) * 100).roundToInt().coerceIn(0, 100) else 0
+        val status: String get() = when {
+            percentage > 70 -> "Normal / Abundante"
+            percentage > 40 -> "Normal / Estable"
+            percentage > 20 -> "Reserva Baja"
+            else -> "Pre Alerta / Sequía"
+        }
+    }
+
+    data class ProvinceData(val provinceName: String, val reservoirs: List<Reservoir>)
+    data class CommunityData(val communityName: String, val provinces: List<ProvinceData>)
+
+    private val spainReservoirsData = listOf(
+        CommunityData("Andalucía", listOf(
+            ProvinceData("Cádiz", listOf(
+                Reservoir("Guadalcacín II", 800.3, 312.0),
+                Reservoir("Zahara - El Gastor", 223.0, 78.5),
+                Reservoir("Bornos", 200.0, 72.0),
+                Reservoir("Celemín", 45.0, 18.2),
+                Reservoir("Barbate", 228.0, 64.0)
+            )),
+            ProvinceData("Sevilla", listOf(
+                Reservoir("José Torán", 113.0, 48.0),
+                Reservoir("El Pintado", 213.0, 92.5),
+                Reservoir("Gergal", 35.0, 24.0)
+            )),
+            ProvinceData("Málaga", listOf(
+                Reservoir("La Viñuela", 164.0, 35.2),
+                Reservoir("Guadalhorce", 126.0, 42.0),
+                Reservoir("Conde de Guadalhorce", 67.0, 28.5)
+            )),
+            ProvinceData("Granada", listOf(
+                Reservoir("Negratín", 567.0, 195.0),
+                Reservoir("Bermejales", 102.0, 44.0),
+                Reservoir("Rules", 117.0, 65.0)
+            )),
+            ProvinceData("Córdoba", listOf(
+                Reservoir("Iznájar", 981.0, 320.0),
+                Reservoir("Bembézar", 342.0, 145.0),
+                Reservoir("San Rafael de Navallana", 157.0, 82.0)
+            )),
+            ProvinceData("Jaén", listOf(
+                Reservoir("Tranco de Beas", 498.0, 210.0),
+                Reservoir("Guadalmena", 400.0, 168.0),
+                Reservoir("Jándula", 56.0, 24.0)
+            )),
+            ProvinceData("Huelva", listOf(
+                Reservoir("Aracena", 128.0, 85.0),
+                Reservoir("Chanza", 341.0, 210.0)
+            )),
+            ProvinceData("Almería", listOf(
+                Reservoir("Cuevas del Almanzora", 159.0, 28.0),
+                Reservoir("Benínar", 69.0, 12.5)
+            ))
+        )),
+        CommunityData("Madrid", listOf(
+            ProvinceData("Madrid", listOf(
+                Reservoir("El Atazar", 425.0, 290.0),
+                Reservoir("Valmayor", 124.0, 88.0),
+                Reservoir("Santillana", 91.0, 68.0),
+                Reservoir("El Pardo", 47.0, 38.0)
+            ))
+        )),
+        CommunityData("Castilla-La Mancha", listOf(
+            ProvinceData("Guadalajara", listOf(
+                Reservoir("Entrepeñas", 835.0, 310.0),
+                Reservoir("Buendía", 1639.0, 480.0),
+                Reservoir("Alcorlo", 180.0, 115.0)
+            )),
+            ProvinceData("Toledo", listOf(
+                Reservoir("Cazalegas", 10.0, 6.5)
+            )),
+            ProvinceData("Ciudad Real", listOf(
+                Reservoir("Gasset", 39.0, 22.0),
+                Reservoir("Torre de Abraham", 183.0, 45.0)
+            ))
+        )),
+        CommunityData("Cataluña", listOf(
+            ProvinceData("Barcelona", listOf(
+                Reservoir("Sau", 151.0, 42.0),
+                Reservoir("Susqueda", 233.0, 78.0)
+            )),
+            ProvinceData("Gerona", listOf(
+                Reservoir("Boadella", 61.0, 28.0)
+            )),
+            ProvinceData("Lérida", listOf(
+                Reservoir("Canelles", 679.0, 245.0),
+                Reservoir("Santa Ana", 237.0, 110.0)
+            ))
+        )),
+        CommunityData("Aragón", listOf(
+            ProvinceData("Zaragoza", listOf(
+                Reservoir("Mequinenza", 1533.0, 980.0),
+                Reservoir("Yesa", 447.0, 210.0)
+            )),
+            ProvinceData("Huesca", listOf(
+                Reservoir("Mediano", 436.0, 260.0),
+                Reservoir("El Grado", 400.0, 230.0)
+            ))
+        )),
+        CommunityData("Comunidad Valenciana", listOf(
+            ProvinceData("Valencia", listOf(
+                Reservoir("Tous", 379.0, 145.0),
+                Reservoir("Loriguilla", 73.0, 31.0)
+            )),
+            ProvinceData("Alicante", listOf(
+                Reservoir("Amadorio", 16.0, 8.5),
+                Reservoir("Tibi", 4.0, 2.0)
+            ))
+        )),
+        CommunityData("Castilla y León", listOf(
+            ProvinceData("León", listOf(
+                Reservoir("Riaño", 651.0, 410.0),
+                Reservoir("Barrios de Luna", 308.0, 195.0)
+            )),
+            ProvinceData("Burgos", listOf(
+                Reservoir("Ebro", 541.0, 320.0)
+            )),
+            ProvinceData("Salamanca", listOf(
+                Reservoir("Almendra", 2648.0, 1420.0)
+            ))
+        ))
+    )
+
+    private fun showReservoirsCommunitiesDialog() {
+        val names = spainReservoirsData.map { it.communityName }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("💧 Selecciona Comunidad Autónoma")
+            .setItems(names) { _, which ->
+                val community = spainReservoirsData[which]
+                showReservoirsProvincesDialog(community)
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun showReservoirsProvincesDialog(community: CommunityData) {
+        val names = community.provinces.map { it.provinceName }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("📍 ${community.communityName} - Provincia")
+            .setItems(names) { _, which ->
+                val province = community.provinces[which]
+                showReservoirsListDialog(province, community)
+            }
+            .setNegativeButton("Volver") { _, _ -> showReservoirsCommunitiesDialog() }
+            .show()
+    }
+
+    private fun showReservoirsListDialog(province: ProvinceData, community: CommunityData) {
+        val scrollView = ScrollView(this)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+        scrollView.addView(container)
+
+        val title = TextView(this).apply {
+            text = "Embalses en ${province.provinceName}"
+            textSize = 16f
+            setTextColor(Color.parseColor("#2B6CB0"))
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, 0, 0, dp(12))
+        }
+        container.addView(title)
+
+        for (res in province.reservoirs) {
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#F7FAFC"))
+                    cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), Color.parseColor("#E2E8F0"))
+                }
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0, 0, 0, dp(8)) }
+                layoutParams = lp
+            }
+
+            val tvName = TextView(this).apply {
+                text = "🌊 ${res.name}"
+                textSize = 14.5f
+                setTextColor(Color.parseColor("#1A202C"))
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            card.addView(tvName)
+
+            val tvDetails = TextView(this).apply {
+                text = "Agua: ${res.storedHm3} hm³ / ${res.capacityHm3} hm³ (${res.percentage}%) • ${res.status}"
+                textSize = 13f
+                setTextColor(Color.parseColor("#4A5568"))
+                setPadding(0, dp(4), 0, dp(6))
+            }
+            card.addView(tvDetails)
+
+            // Barra horizontal azul de progreso
+            val barBackground = GradientDrawable().apply {
+                setColor(Color.parseColor("#E2E8F0"))
+                cornerRadius = dp(4).toFloat()
+            }
+            val barContainer = FrameLayout(this).apply {
+                background = barBackground
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(10)
+                )
+            }
+
+            val progressWidthPx = maxOf(dp(4), (dp(260) * (res.percentage / 100.0)).toInt())
+            val barProgress = View(this).apply {
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#3182CE"))
+                    cornerRadius = dp(4).toFloat()
+                }
+                layoutParams = FrameLayout.LayoutParams(
+                    progressWidthPx,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            barContainer.addView(barProgress)
+            card.addView(barContainer)
+
+            container.addView(card)
+        }
+
+        AlertDialog.Builder(this)
+            .setView(scrollView)
+            .setPositiveButton("Cerrar", null)
+            .setNegativeButton("Volver") { _, _ -> 
+                showReservoirsProvincesDialog(community)
+            }
+            .show()
     }
 
     private fun renderTimeline(city: String, list: List<TimelineItem>, sourceUsed: String, dailySummaries: List<DailySummary> = emptyList()) {

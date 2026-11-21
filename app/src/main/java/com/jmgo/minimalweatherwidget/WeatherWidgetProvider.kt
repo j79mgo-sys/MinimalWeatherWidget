@@ -271,6 +271,10 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             try {
                 synchronized(updateLock) {
                     val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+                    val locInfo = resolveLocationAndMunicipio(context)
+                    val savedCity = prefs.getString("cached_widget_city", "") ?: ""
+                    val isSameLocation = (savedCity == locInfo.cityName)
+
                     val savedVersion = prefs.getInt("cache_version", 1)
                     val savedDate = prefs.getString("cached_date", "")
                     val currentDateStr = java.time.LocalDate.now().toString()
@@ -279,13 +283,12 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     val todayExpectedDayName = diasSemana[nowDate.dayOfWeek.value % 7]
                     val cachedDay0Name = prefs.getString("c_day_0", "") ?: ""
 
-                    val isSameDay = (savedDate == currentDateStr) && (cachedDay0Name == todayExpectedDayName)
+                    val isSameDay = isSameLocation && (savedDate == currentDateStr) && (cachedDay0Name == todayExpectedDayName)
                     val lastFetch = if (savedVersion < CACHE_VERSION) 0L else prefs.getLong("last_fetch_time", 0L)
 
                     val currentTime = System.currentTimeMillis()
                     val isCacheValid = isSameDay && (currentTime - lastFetch) < CACHE_MILLIS
 
-                    val locInfo = resolveLocationAndMunicipio(context)
                     val daysData = mutableListOf<DayForecast>()
                     var currentTemp = prefs.getString("cached_temp", "--") ?: "--"
                     var currentUv = prefs.getInt("cached_current_uv", 0)
@@ -325,6 +328,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             editor.putInt("cache_version", CACHE_VERSION)
                             editor.putLong("last_fetch_time", currentTime)
                             editor.putString("cached_date", currentDateStr)
+                            editor.putString("cached_widget_city", locInfo.cityName)
                             editor.putString("cached_temp", currentTemp)
                             editor.putInt("cached_current_uv", currentUv)
                             editor.putString("cached_widget_update_time", updateTimeStr)
@@ -341,6 +345,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                                 editor.putInt("c_uv_$i", d.uvMax)
                                 editor.putString("c_uv_start_$i", d.uvStart)
                                 editor.putString("c_uv_end_$i", d.uvEnd)
+                                editor.putBoolean("c_moon_$i", d.hasGoodMoonPhoto)
                             }
                             editor.apply()
                         }
@@ -360,6 +365,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             val minT = parts.getOrNull(1)?.trim() ?: ""
                             val rawWind = prefs.getString("c_wind_$i", "") ?: ""
                             val savedWindSpeed = prefs.getInt("c_wind_speed_$i", 0)
+                            val savedMoonPhoto = prefs.getBoolean("c_moon_$i", false)
 
                             daysData.add(
                                 DayForecast(
@@ -370,7 +376,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                                     maxTemp = maxT,
                                     minTemp = minT,
                                     rainStr = prefs.getString("c_rain_$i", "") ?: "",
-                                    hasGoodMoonPhoto = false,
+                                    hasGoodMoonPhoto = savedMoonPhoto,
                                     uvMax = prefs.getInt("c_uv_$i", 0),
                                     uvStart = prefs.getString("c_uv_start_$i", "") ?: "",
                                     uvEnd = prefs.getString("c_uv_end_$i", "") ?: ""
@@ -500,6 +506,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val alertBellIds = listOf(R.id.alertBell0, R.id.alertBell1, R.id.alertBell2, R.id.alertBell3)
         val iconIds = listOf(R.id.icon0, R.id.icon1, R.id.icon2, R.id.icon3)
         val dayIds = listOf(R.id.day0, R.id.day1, R.id.day2, R.id.day3)
+        val camIds = listOf(R.id.cam0, R.id.cam1, R.id.cam2, R.id.cam3)
         val windIds = listOf(R.id.wind0, R.id.wind1, R.id.wind2, R.id.wind3)
         val tempIds = listOf(R.id.temp0, R.id.temp1, R.id.temp2, R.id.temp3)
         val rainIds = listOf(R.id.rain0, R.id.rain1, R.id.rain2, R.id.rain3)
@@ -526,10 +533,9 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             val uvHeaderStr = if (currentUv >= 3) "  UV$currentUv" else ""
             views.setTextViewText(R.id.tvHeaderCityTemp, "📍 $cityName $currentTemp°$uvHeaderStr")
 
-            // Indicador Foto Óptima Luna + Hora de actualización del widget
-            val moonStr = if (anyGoodMoonPhoto) "📷 🌕  " else ""
+            // Hora de actualización del widget (limpia de iconos de luna)
             val displayTime = if (updateTimeStr == "--:--") "" else updateTimeStr
-            views.setTextViewText(R.id.tvUpdateTime, "$moonStr$displayTime".trim())
+            views.setTextViewText(R.id.tvUpdateTime, displayTime)
 
             if (daysData.isNotEmpty()) {
                 val isDark = (layoutRes == R.layout.widget_weather)
@@ -537,6 +543,12 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     val d = daysData[i]
                     views.setTextViewText(iconIds[i], d.icon)
                     views.setTextViewText(dayIds[i], d.dayName)
+                    if (d.hasGoodMoonPhoto) {
+                        views.setViewVisibility(camIds[i], android.view.View.VISIBLE)
+                        views.setTextViewText(camIds[i], "📷")
+                    } else {
+                        views.setViewVisibility(camIds[i], android.view.View.GONE)
+                    }
 
                     val warningLevel = getWarningLevelForDay(i, d, multiDayWarnings)
 
@@ -707,7 +719,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val lon = bestLoc.longitude
 
         val detectedCity = getCityFromGps(context, lat, lon) ?: savedCity
-        val resolvedCode = findAemetMunicipioCode(context, detectedCity).ifEmpty { savedCode }
+        val resolvedCode = findAemetMunicipioCode(context, detectedCity)
 
         prefs.edit()
             .putString("city", detectedCity)
@@ -802,7 +814,12 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 val icon = aemetSkyToEmoji(skyCode)
 
                 val (dir, speed) = extractMainWind(diaObj.optJSONArray("viento"))
-                val windText = "${windDirToArrow(dir)} ${windSpeedToBars(speed)}$speed"
+                val rachaMax = extractMaxIntFromPeriodArray(diaObj.optJSONArray("rachaMax"))
+                val windText = if (rachaMax > speed && rachaMax > 0) {
+                    "${windDirToArrow(dir)} ${windSpeedToBars(speed)}$speed ($rachaMax)"
+                } else {
+                    "${windDirToArrow(dir)} ${windSpeedToBars(speed)}$speed"
+                }
 
                 val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
                 val sunData = MainActivityHelper.calculateSunTimesStatic(targetDate, lat, lon)
@@ -978,6 +995,17 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 val v = vStr.toDoubleOrNull() ?: 0.0
                 if (v > maxVal) maxVal = v
             }
+        }
+        return maxVal
+    }
+
+    fun extractMaxIntFromPeriodArray(arr: JSONArray?): Int {
+        if (arr == null) return 0
+        var maxVal = 0
+        for (i in 0 until arr.length()) {
+            val vStr = arr.getJSONObject(i).optString("value", "")
+            val v = vStr.toIntOrNull() ?: 0
+            if (v > maxVal) maxVal = v
         }
         return maxVal
     }
