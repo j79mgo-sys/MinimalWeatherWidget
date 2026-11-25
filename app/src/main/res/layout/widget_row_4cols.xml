@@ -2,8 +2,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rowRootContainer"
     android:layout_width="match_parent"
-    android:layout_height="102dp"
-    android:minHeight="102dp"
+    android:layout_height="106dp"
+    android:minHeight="106dp"
     android:orientation="horizontal"
     android:paddingTop="1dp"
     android:paddingBottom="4dp"
@@ -14,12 +14,12 @@
         android:id="@+id/card0"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="102dp"
+        android:minHeight="106dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
         android:paddingTop="1dp"
-        android:paddingBottom="2dp">
+        android:paddingBottom="4dp">
 
         <!-- Fila Día + Cámara + Icono -->
         <LinearLayout
@@ -41,7 +41,7 @@
                     android:includeFontPadding="false"
                     android:text="L"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -60,7 +60,7 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="☀️"
-                android:textSize="22sp" />
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Viento -->
@@ -73,7 +73,7 @@
             android:singleLine="true"
             android:text="↗ 15"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="9.5sp" />
 
         <!-- Temperaturas -->
         <TextView
@@ -85,7 +85,7 @@
             android:singleLine="true"
             android:text="21 / 7"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <!-- Lluvia + UV -->
@@ -105,7 +105,7 @@
                 android:singleLine="true"
                 android:text="💧 1"
                 android:textColor="#3182CE"
-                android:textSize="11sp"
+                android:textSize="10.5sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -140,7 +140,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Luz Útil -->
+        <!-- Luz Útil / Deporte -->
         <TextView
             android:id="@+id/outdoor0"
             android:layout_width="match_parent"
@@ -152,7 +152,7 @@
             android:singleLine="true"
             android:text="🏃 5 h"
             android:textColor="#1A202C"
-            android:textSize="10.5sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -161,12 +161,12 @@
         android:id="@+id/card1"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="102dp"
+        android:minHeight="106dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
         android:paddingTop="1dp"
-        android:paddingBottom="2dp">
+        android:paddingBottom="4dp">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -187,7 +187,7 @@
                     android:includeFontPadding="false"
                     android:text="M"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -206,7 +206,7 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="⛅"
-                android:textSize="22sp" />
+                android:textSize="20sp" />
         </LinearLayout>
 
         <TextView
@@ -218,7 +218,7 @@
             android:singleLine="true"
             android:text="↗ 20"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="9.5sp" />
 
         <TextView
             android:id="@+id/temp1"
@@ -229,7 +229,7 @@
             android:singleLine="true"
             android:text="20 / 8"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -248,7 +248,7 @@
                 android:singleLine="true"
                 android:text="💧 3"
                 android:textColor="#3182CE"
-                android:textSize="11sp"
+                android:textSize="10.5sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -294,7 +294,7 @@
             android:singleLine="true"
             android:text="🏃 8 h"
             android:textColor="#1A202C"
-            android:textSize="10.5sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -303,12 +303,12 @@
         android:id="@+id/card2"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="102dp"
+        android:minHeight="106dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
         android:paddingTop="1dp"
-        android:paddingBottom="2dp">
+        android:paddingBottom="4dp">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -329,7 +329,7 @@
                     android:includeFontPadding="false"
                     android:text="X"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -348,7 +348,7 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="🌧️"
-                android:textSize="22sp" />
+                android:textSize="20sp" />
         </LinearLayout>
 
         <TextView
@@ -360,7 +360,7 @@
             android:singleLine="true"
             android:text="↙ 25"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="9.5sp" />
 
         <TextView
             android:id="@+id/temp2"
@@ -371,7 +371,7 @@
             android:singleLine="true"
             android:text="18 / 9"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -390,7 +390,7 @@
                 android:singleLine="true"
                 android:text="💧 8"
                 android:textColor="#3182CE"
-                android:textSize="11sp"
+                android:textSize="10.5sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -436,7 +436,7 @@
             android:singleLine="true"
             android:text="🏃 2 h"
             android:textColor="#1A202C"
-            android:textSize="10.5sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -445,12 +445,12 @@
         android:id="@+id/card3"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="102dp"
+        android:minHeight="106dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
         android:paddingTop="1dp"
-        android:paddingBottom="2dp">
+        android:paddingBottom="4dp">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -471,7 +471,7 @@
                     android:includeFontPadding="false"
                     android:text="J"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -490,7 +490,7 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="☀️"
-                android:textSize="22sp" />
+                android:textSize="20sp" />
         </LinearLayout>
 
         <TextView
@@ -502,7 +502,7 @@
             android:singleLine="true"
             android:text="↖ 12"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="9.5sp" />
 
         <TextView
             android:id="@+id/temp3"
@@ -513,7 +513,7 @@
             android:singleLine="true"
             android:text="22 / 10"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -532,7 +532,7 @@
                 android:singleLine="true"
                 android:text=""
                 android:textColor="#3182CE"
-                android:textSize="11sp"
+                android:textSize="10.5sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -578,7 +578,7 @@
             android:singleLine="true"
             android:text="🏃 6 h"
             android:textColor="#1A202C"
-            android:textSize="10.5sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

@@ -7,16 +7,18 @@
     android:orientation="vertical"
     android:paddingStart="10dp"
     android:paddingEnd="10dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp">
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
-    <!-- Cabecera Superior -->
+    <!-- Cabecera Superior (22dp) -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="22dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:layout_marginBottom="2dp">
+        android:layout_marginBottom="2dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
 
         <TextView
             android:id="@+id/tvHeaderCityTemp"
@@ -28,7 +30,7 @@
             android:singleLine="true"
             android:text="📍 Medina Sidonia 23°"
             android:textColor="#D69E2E"
-            android:textSize="13.5sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
@@ -41,12 +43,12 @@
             android:textSize="10.5sp" />
     </LinearLayout>
 
-    <!-- ListView para las 2 filas desplazables de 4 columnas (7 Días) -->
+    <!-- ListView ajustado a 106dp exactos (1:1 con la fila de 106dp) -->
     <ListView
         android:id="@+id/lvWidgetDays"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="106dp"
+        android:layout_gravity="center_vertical"
         android:clipToPadding="true"
         android:divider="@null"
         android:dividerHeight="0dp"
@@ -56,8 +58,7 @@
     <TextView
         android:id="@+id/empty_view"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="106dp"
         android:gravity="center"
         android:includeFontPadding="false"
         android:text="Cargando previsión... Pulsa la hora para actualizar"
