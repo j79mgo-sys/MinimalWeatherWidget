@@ -85,7 +85,7 @@ body {
 .btn-icon:hover { background: #E2E8F0; }
 .btn-icon:active { transform: scale(0.96); }
 
-/* Widget Preview Card - Clon 4x2 con Scroll Interno */
+/* Widget Preview Card - Clon 4x2 Desplegado Completo */
 .widget-preview-card {
   background: #F7F9FC;
   border-radius: 14px;
@@ -98,7 +98,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .widget-city-temp {
@@ -113,23 +113,11 @@ body {
   color: #718096;
 }
 
-/* Scrollable Container para las 2 filas de 4 columnas */
+/* Container Desplegado para las 2 filas de 4 columnas */
 .widget-scroll-container {
-  max-height: 125px;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-right: 2px;
-}
-
-.widget-scroll-container::-webkit-scrollbar {
-  width: 3px;
-}
-.widget-scroll-container::-webkit-scrollbar-thumb {
-  background: #CBD5E0;
-  border-radius: 3px;
+  gap: 8px;
 }
 
 .widget-cols-row {
@@ -137,7 +125,6 @@ body {
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   text-align: center;
-  scroll-snap-align: start;
 }
 
 .widget-col {
@@ -215,7 +202,7 @@ body {
   justify-content: space-between;
 }
 
-/* Timeline Section (Exact Clon App Novedad 1:1) */
+/* Timeline Section */
 .day-divider {
   font-size: 1.05rem;
   font-weight: 700;
@@ -289,7 +276,7 @@ body {
   margin-left: 4px;
 }
 
-/* Modals */
+/* Modals - Centrados Verticalmente para que no se corten */
 .modal {
   display: none;
   position: fixed;
@@ -297,23 +284,26 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
-  z-index: 200;
+  background: rgba(0,0,0,0.55);
+  z-index: 300;
   justify-content: center;
-  align-items: flex-end;
+  align-items: center;
+  padding: 16px;
 }
 
 .modal-content {
   background: #FFFFFF;
-  border-radius: 16px 16px 0 0;
+  border-radius: 16px;
   width: 100%;
-  max-width: 480px;
-  max-height: 85vh;
+  max-width: 430px;
+  max-height: 82vh;
   overflow-y: auto;
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+  margin: auto;
 }
 
 .modal-header {
