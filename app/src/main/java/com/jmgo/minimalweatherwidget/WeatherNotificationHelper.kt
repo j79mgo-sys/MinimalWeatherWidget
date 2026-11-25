@@ -109,7 +109,7 @@ object WeatherNotificationHelper {
         dialog.show()
 
         CoroutineScope(Dispatchers.IO).launch {
-            val loc = WeatherWidgetProvider().resolveLocationAndMunicipio(activity)
+            val loc = WeatherWidgetProvider.resolveLocationAndMunicipio(activity)
             val alerts = mutableListOf<String>()
 
             val windEnabled = prefs.getBoolean("notif_wind_enabled", false)
@@ -130,7 +130,7 @@ object WeatherNotificationHelper {
             val tidesEnabled = prefs.getBoolean("notif_tides_enabled", false)
             val aemetWarningsEnabled = prefs.getBoolean("notif_aemet_warnings_enabled", false)
 
-            val openMeteoData = WeatherWidgetProvider().fetchOpenMeteoFallbackAndCurrent(loc.lat, loc.lon, days = 3)
+            val openMeteoData = WeatherWidgetProvider.fetchOpenMeteoFallbackAndCurrent(loc.lat, loc.lon, days = 3)
             val daysList = openMeteoData.second
 
             val today = daysList.firstOrNull()
@@ -853,7 +853,7 @@ object WeatherNotificationHelper {
                                     }
                                 }
 
-                                val rainMm = WeatherWidgetProvider().extractMaxDoubleFromPeriodArray(dObj.optJSONArray("precipitacion"))
+                                val rainMm = WeatherWidgetProvider.extractMaxDoubleFromPeriodArray(dObj.optJSONArray("precipitacion"))
                                 val probArray = dObj.optJSONArray("probPrecipitacion")
                                 var maxProb = 0
                                 if (probArray != null) {
@@ -864,7 +864,7 @@ object WeatherNotificationHelper {
                                 }
 
                                 val cieloArray = dObj.optJSONArray("estadoCielo")
-                                val skyCode = WeatherWidgetProvider().extractFirstNonEmptyString(cieloArray, "value")
+                                val skyCode = WeatherWidgetProvider.extractFirstNonEmptyString(cieloArray, "value")
                                 var skyDesc = ""
                                 if (cieloArray != null) {
                                     for (k in 0 until cieloArray.length()) {
@@ -914,7 +914,7 @@ object WeatherNotificationHelper {
 
         // 3. Respaldar con Open-Meteo si para algún día adverso no se había capturado
         try {
-            val openMeteoData = WeatherWidgetProvider().fetchOpenMeteoFallbackAndCurrent(lat, lon, days = 7)
+            val openMeteoData = WeatherWidgetProvider.fetchOpenMeteoFallbackAndCurrent(lat, lon, days = 7)
             val daysList = openMeteoData.second
             val nowDate = java.time.LocalDate.now()
             val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")

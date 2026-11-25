@@ -14,6 +14,7 @@ import android.graphics.Color
 import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.net.Uri
 import android.os.SystemClock
 import android.widget.RemoteViews
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,226 @@ import kotlin.math.*
 
 open class WeatherWidgetProvider : AppWidgetProvider() {
 
+    data class KnownTown(val name: String, val code: String, val lat: Double, val lon: Double)
+    data class LocationData(val lat: Double, val lon: Double, val cityName: String, val municipioCode: String)
+    data class DayForecast(
+        val dayName: String,
+        val icon: String,
+        val windText: String,
+        val windSpeedVal: Int,
+        val maxTemp: String,
+        val minTemp: String,
+        val rainStr: String,
+        val hasGoodMoonPhoto: Boolean,
+        val uvMax: Int = 0,
+        val uvStart: String = "",
+        val uvEnd: String = "",
+        val outdoorBadge: String = "🏃🟢",
+        val apparentMaxTemp: String = "",
+        val apparentMinTemp: String = ""
+    )
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        scheduleAutoRefresh(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        if (!hasAnyWidgets(context)) {
+            cancelAutoRefresh(context)
+        }
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == ACTION_REFRESH || intent.action == ACTION_AUTO_REFRESH) {
+            context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putLong("last_fetch_time", 0L)
+                .apply()
+
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, WeatherWidgetProvider::class.java))
+            onUpdate(context, manager, ids)
+        }
+    }
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        scheduleAutoRefresh(context)
+
+        val pendingResult = goAsync()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                synchronized(updateLock) {
+                    val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+                    val locInfo = resolveLocationAndMunicipio(context)
+                    val savedCity = prefs.getString("cached_widget_city", "") ?: ""
+                    val isSameLocation = (savedCity == locInfo.cityName)
+
+                    val savedVersion = prefs.getInt("cache_version", 1)
+                    val savedDate = prefs.getString("cached_date", "")
+                    val currentDateStr = java.time.LocalDate.now().toString()
+                    val nowDate = java.time.LocalDate.now()
+                    val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
+                    val todayExpectedDayName = diasSemana[nowDate.dayOfWeek.value % 7]
+                    val cachedDay0Name = prefs.getString("c_day_0", "") ?: ""
+
+                    val isSameDay = isSameLocation && (savedDate == currentDateStr) && (cachedDay0Name == todayExpectedDayName)
+                    val lastFetch = if (savedVersion < CACHE_VERSION) 0L else prefs.getLong("last_fetch_time", 0L)
+
+                    val currentTime = System.currentTimeMillis()
+                    val isCacheValid = isSameDay && (currentTime - lastFetch) < CACHE_MILLIS
+
+                    val daysData = mutableListOf<DayForecast>()
+                    var currentTemp = prefs.getString("cached_temp", "--") ?: "--"
+                    var currentUv = prefs.getInt("cached_current_uv", 0)
+                    var updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
+                    var anyGoodMoonPhoto = false
+
+                    if (!isCacheValid) {
+                        updateTimeStr = java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+
+                        val openMeteoData = fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon, context = context)
+                        val fetchedDays = openMeteoData.second
+                        val fetchedCurrentTemp = openMeteoData.first
+                        currentUv = openMeteoData.third
+
+                        if (fetchedDays.isNotEmpty()) {
+                            daysData.addAll(fetchedDays)
+                            currentTemp = fetchedCurrentTemp ?: fetchedDays.firstOrNull()?.maxTemp ?: "--"
+                            anyGoodMoonPhoto = daysData.any { it.hasGoodMoonPhoto }
+
+                            val editor = prefs.edit()
+                            editor.putInt("cache_version", CACHE_VERSION)
+                            editor.putLong("last_fetch_time", currentTime)
+                            editor.putString("cached_date", currentDateStr)
+                            editor.putString("cached_widget_city", locInfo.cityName)
+                            editor.putString("cached_temp", currentTemp)
+                            editor.putInt("cached_current_uv", currentUv)
+                            editor.putString("cached_widget_update_time", updateTimeStr)
+                            editor.putBoolean("cached_moon_photo", anyGoodMoonPhoto)
+                            editor.putBoolean("is_cache_fallback", false)
+
+                            for (i in 0 until minOf(4, fetchedDays.size)) {
+                                val d = fetchedDays[i]
+                                editor.putString("c_day_$i", d.dayName)
+                                editor.putString("c_icon_$i", d.icon)
+                                editor.putString("c_wind_$i", d.windText)
+                                editor.putInt("c_wind_speed_$i", d.windSpeedVal)
+                                editor.putString("c_temp_$i", "${d.maxTemp} / ${d.minTemp}")
+                                editor.putString("c_rain_$i", d.rainStr)
+                                editor.putInt("c_uv_$i", d.uvMax)
+                                editor.putString("c_uv_start_$i", d.uvStart)
+                                editor.putString("c_uv_end_$i", d.uvEnd)
+                                editor.putString("c_outdoor_$i", d.outdoorBadge)
+                                editor.putString("c_app_max_$i", d.apparentMaxTemp)
+                                editor.putString("c_app_min_$i", d.apparentMinTemp)
+                                editor.putBoolean("c_moon_$i", d.hasGoodMoonPhoto)
+                            }
+                            editor.commit()
+                        }
+                    }
+
+                    if (daysData.isEmpty()) {
+                        prefs.edit().putBoolean("is_cache_fallback", true).commit()
+                        anyGoodMoonPhoto = prefs.getBoolean("cached_moon_photo", false)
+                        currentUv = prefs.getInt("cached_current_uv", 0)
+                        updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
+
+                        for (i in 0 until 4) {
+                            val targetDate = nowDate.plusDays(i.toLong())
+                            val expectedDayName = diasSemana[targetDate.dayOfWeek.value % 7]
+                            val savedTemp = prefs.getString("c_temp_$i", "") ?: ""
+                            val parts = savedTemp.split("/")
+                            val maxT = parts.getOrNull(0)?.trim() ?: ""
+                            val minT = parts.getOrNull(1)?.trim() ?: ""
+                            val rawWind = prefs.getString("c_wind_$i", "") ?: ""
+                            val savedWindSpeed = prefs.getInt("c_wind_speed_$i", 0)
+                            val savedMoonPhoto = prefs.getBoolean("c_moon_$i", false)
+                            val savedRain = prefs.getString("c_rain_$i", "") ?: ""
+                            val savedUv = prefs.getInt("c_uv_$i", 0)
+                            val savedOutdoor = prefs.getString("c_outdoor_$i", null)
+                                ?: calculateDayOutdoorBadge(prefs, maxT, minT, savedWindSpeed, savedRain, savedUv)
+
+                            daysData.add(
+                                DayForecast(
+                                    dayName = expectedDayName,
+                                    icon = prefs.getString("c_icon_$i", "⛅") ?: "⛅",
+                                    windText = sanitizeWidgetWind(rawWind),
+                                    windSpeedVal = savedWindSpeed,
+                                    maxTemp = maxT,
+                                    minTemp = minT,
+                                    rainStr = savedRain,
+                                    hasGoodMoonPhoto = savedMoonPhoto,
+                                    uvMax = savedUv,
+                                    uvStart = prefs.getString("c_uv_start_$i", "") ?: "",
+                                    uvEnd = prefs.getString("c_uv_end_$i", "") ?: "",
+                                    outdoorBadge = savedOutdoor
+                                )
+                            )
+                        }
+                    }
+
+                    var multiDayWarnings: List<WeatherNotificationHelper.AemetDayWarning> = emptyList()
+                    try {
+                        val widgetDailySummaries = daysData.mapIndexed { index, d ->
+                            val date = java.time.LocalDate.now().plusDays(index.toLong())
+                            val fullLabel = when (index) {
+                                0 -> "Hoy"
+                                1 -> "Mañana"
+                                else -> "${d.dayName} (${date.dayOfMonth}/${date.monthValue})"
+                            }
+                            MainActivity.DailySummary(
+                                date = date,
+                                dayName = d.dayName,
+                                fullDayLabel = fullLabel,
+                                icon = d.icon,
+                                windText = d.windText,
+                                windSpeedVal = d.windSpeedVal,
+                                maxTemp = d.maxTemp,
+                                minTemp = d.minTemp,
+                                rainStr = d.rainStr,
+                                uvStart = d.uvStart,
+                                uvEnd = d.uvEnd
+                            )
+                        }
+
+                        multiDayWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(
+                            context, locInfo.municipioCode, locInfo.lat, locInfo.lon, widgetDailySummaries
+                        )
+                    } catch (e: Exception) {
+                    }
+
+                    val darkIds = appWidgetManager.getAppWidgetIds(
+                        ComponentName(context, WeatherWidgetProvider::class.java)
+                    )
+                    val lightIds = appWidgetManager.getAppWidgetIds(
+                        ComponentName(context, LightWeatherWidgetProvider::class.java)
+                    )
+
+                    applyToWidgets(
+                        context, appWidgetManager, darkIds, R.layout.widget_weather,
+                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, multiDayWarnings
+                    )
+                    applyToWidgets(
+                        context, appWidgetManager, lightIds, R.layout.widget_weather_light,
+                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, multiDayWarnings
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
     companion object {
         // Fuerza una descarga nueva de datos (ignora la caché) y actualiza los widgets
         const val ACTION_REFRESH = "com.jmgo.minimalweatherwidget.ACTION_REFRESH"
@@ -40,7 +261,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         // Extra que se añade al abrir la app desde el widget
         const val EXTRA_REFRESH_FROM_WIDGET = "refresh_from_widget"
 
-        private const val CACHE_VERSION = 17
+        private const val CACHE_VERSION = 24
         // 29 minutos para que la alarma de 30 minutos siempre encuentre la caché caducada
         private const val CACHE_MILLIS = 29 * 60 * 1000L
         // Evita que el widget oscuro y el claro descarguen datos a la vez
@@ -68,6 +289,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 action = ACTION_REFRESH
             }
             context.sendBroadcast(intent)
+
+            AemetOnly4x1WidgetProvider.requestRefresh(context)
         }
 
         fun getRecentTowns(context: Context): MutableList<KnownTown> {
@@ -210,237 +433,61 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             return java.text.Normalizer.normalize(input.lowercase(Locale("es", "ES")).trim(), java.text.Normalizer.Form.NFD)
                 .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
         }
-    }
 
-    data class KnownTown(val name: String, val code: String, val lat: Double, val lon: Double)
-    data class LocationData(val lat: Double, val lon: Double, val cityName: String, val municipioCode: String)
-    data class DayForecast(
-        val dayName: String,
-        val icon: String,
-        val windText: String,
-        val windSpeedVal: Int,
-        val maxTemp: String,
-        val minTemp: String,
-        val rainStr: String,
-        val hasGoodMoonPhoto: Boolean,
-        val uvMax: Int = 0,
-        val uvStart: String = "",
-        val uvEnd: String = ""
-    )
+        @JvmStatic
+        fun calculateDayOutdoorBadge(prefs: android.content.SharedPreferences?, maxTempStr: String, minTempStr: String, windSpeed: Int, rainStr: String, uvMax: Int): String {
+            val optMinT = prefs?.getInt("outdoor_temp_opt_min", 10) ?: 10
+            val optMaxT = prefs?.getInt("outdoor_temp_opt_max", 24) ?: 24
+            val redMinT = prefs?.getInt("outdoor_temp_red_min", 4) ?: 4
+            val redMaxT = prefs?.getInt("outdoor_temp_red_max", 31) ?: 31
 
-    override fun onEnabled(context: Context) {
-        super.onEnabled(context)
-        scheduleAutoRefresh(context)
-    }
+            val rainOptMax = (prefs?.getFloat("outdoor_rain_opt_max", 0.0f) ?: 0.0f).toDouble()
+            val rainRedMax = (prefs?.getFloat("outdoor_rain_red_max", 1.5f) ?: 1.5f).toDouble()
 
-    override fun onDisabled(context: Context) {
-        super.onDisabled(context)
-        // Solo cancelamos la alarma si ya no queda ningún widget (ni oscuro ni claro)
-        if (!hasAnyWidgets(context)) {
-            cancelAutoRefresh(context)
-        }
-    }
+            val windOptMax = prefs?.getInt("outdoor_wind_opt_max", 25) ?: 25
+            val windRedMax = prefs?.getInt("outdoor_wind_red_max", 40) ?: 40
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH || intent.action == ACTION_AUTO_REFRESH) {
-            // Invalida la caché para obligar a descargar datos nuevos
-            context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-                .edit()
-                .putLong("last_fetch_time", 0L)
-                .apply()
+            val uvOptMax = prefs?.getInt("outdoor_uv_opt_max", 5) ?: 5
+            val uvRedMax = prefs?.getInt("outdoor_uv_red_max", 8) ?: 8
 
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, WeatherWidgetProvider::class.java))
-            onUpdate(context, manager, ids)
-        }
-    }
+            val maxT = maxTempStr.toIntOrNull() ?: 20
+            val minT = minTempStr.toIntOrNull() ?: 15
+            val avgT = (maxT + minT) / 2
 
-    // Este método pinta SIEMPRE los dos widgets (oscuro y claro), sea cual sea el que lo llame
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
-        // Asegura que la alarma de cada 30 minutos sigue programada (por ejemplo, tras reiniciar el móvil)
-        scheduleAutoRefresh(context)
+            val cleanRain = rainStr.replace("mm", "").replace("l/m²", "").replace("💧", "").trim()
+            val r = cleanRain.toDoubleOrNull() ?: 0.0
 
-        val pendingResult = goAsync()
+            val tempLevel = when {
+                avgT in optMinT..optMaxT -> 2
+                avgT in redMinT..<optMinT || avgT in (optMaxT + 1)..redMaxT -> 1
+                else -> 0
+            }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                synchronized(updateLock) {
-                    val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-                    val locInfo = resolveLocationAndMunicipio(context)
-                    val savedCity = prefs.getString("cached_widget_city", "") ?: ""
-                    val isSameLocation = (savedCity == locInfo.cityName)
+            val rainLevel = when {
+                r <= rainOptMax -> 2
+                r <= rainRedMax -> 1
+                else -> 0
+            }
 
-                    val savedVersion = prefs.getInt("cache_version", 1)
-                    val savedDate = prefs.getString("cached_date", "")
-                    val currentDateStr = java.time.LocalDate.now().toString()
-                    val nowDate = java.time.LocalDate.now()
-                    val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
-                    val todayExpectedDayName = diasSemana[nowDate.dayOfWeek.value % 7]
-                    val cachedDay0Name = prefs.getString("c_day_0", "") ?: ""
+            val windLevel = when {
+                windSpeed <= windOptMax -> 2
+                windSpeed <= windRedMax -> 1
+                else -> 0
+            }
 
-                    val isSameDay = isSameLocation && (savedDate == currentDateStr) && (cachedDay0Name == todayExpectedDayName)
-                    val lastFetch = if (savedVersion < CACHE_VERSION) 0L else prefs.getLong("last_fetch_time", 0L)
+            val uvLevel = when {
+                uvMax <= uvOptMax -> 2
+                uvMax < uvRedMax -> 1
+                else -> 0
+            }
 
-                    val currentTime = System.currentTimeMillis()
-                    val isCacheValid = isSameDay && (currentTime - lastFetch) < CACHE_MILLIS
-
-                    val daysData = mutableListOf<DayForecast>()
-                    var currentTemp = prefs.getString("cached_temp", "--") ?: "--"
-                    var currentUv = prefs.getInt("cached_current_uv", 0)
-                    var updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
-                    var anyGoodMoonPhoto = false
-
-                    if (!isCacheValid) {
-                        val openMeteoData = fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon)
-                        val openMeteoDays = openMeteoData.second
-                        currentUv = openMeteoData.third
-                        updateTimeStr = java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
-
-                        var fetchedDays = fetchAemetForecast(context, locInfo.municipioCode, locInfo.lat, locInfo.lon)
-
-                        if (fetchedDays.isEmpty() && openMeteoDays.isNotEmpty()) {
-                            fetchedDays = openMeteoDays
-                        } else if (fetchedDays.isNotEmpty() && openMeteoDays.isNotEmpty()) {
-                            // AEMET no trae el UV (y la predicción diaria de AEMET suele usar probabilidad % en lugar de mm): los combinamos con Open-Meteo
-                            fetchedDays = fetchedDays.mapIndexed { index, d ->
-                                val omDay = openMeteoDays.firstOrNull { it.dayName == d.dayName }
-                                    ?: openMeteoDays.getOrNull(index)
-                                d.copy(
-                                    rainStr = if (d.rainStr.isEmpty()) (omDay?.rainStr ?: "") else d.rainStr,
-                                    uvMax = omDay?.uvMax ?: 0,
-                                    uvStart = omDay?.uvStart ?: "",
-                                    uvEnd = omDay?.uvEnd ?: ""
-                                )
-                            }
-                        }
-
-                        if (fetchedDays.isNotEmpty()) {
-                            daysData.addAll(fetchedDays)
-                            currentTemp = openMeteoData.first ?: fetchedDays.firstOrNull()?.maxTemp ?: "--"
-                            anyGoodMoonPhoto = daysData.any { it.hasGoodMoonPhoto }
-
-                            val editor = prefs.edit()
-                            editor.putInt("cache_version", CACHE_VERSION)
-                            editor.putLong("last_fetch_time", currentTime)
-                            editor.putString("cached_date", currentDateStr)
-                            editor.putString("cached_widget_city", locInfo.cityName)
-                            editor.putString("cached_temp", currentTemp)
-                            editor.putInt("cached_current_uv", currentUv)
-                            editor.putString("cached_widget_update_time", updateTimeStr)
-                            editor.putBoolean("cached_moon_photo", anyGoodMoonPhoto)
-
-                            for (i in 0 until minOf(4, fetchedDays.size)) {
-                                val d = fetchedDays[i]
-                                editor.putString("c_day_$i", d.dayName)
-                                editor.putString("c_icon_$i", d.icon)
-                                editor.putString("c_wind_$i", d.windText)
-                                editor.putInt("c_wind_speed_$i", d.windSpeedVal)
-                                editor.putString("c_temp_$i", "${d.maxTemp} / ${d.minTemp}")
-                                editor.putString("c_rain_$i", d.rainStr)
-                                editor.putInt("c_uv_$i", d.uvMax)
-                                editor.putString("c_uv_start_$i", d.uvStart)
-                                editor.putString("c_uv_end_$i", d.uvEnd)
-                                editor.putBoolean("c_moon_$i", d.hasGoodMoonPhoto)
-                            }
-                            editor.apply()
-                        }
-                    }
-
-                    if (daysData.isEmpty()) {
-                        anyGoodMoonPhoto = prefs.getBoolean("cached_moon_photo", false)
-                        currentUv = prefs.getInt("cached_current_uv", 0)
-                        updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
-
-                        for (i in 0 until 4) {
-                            val targetDate = nowDate.plusDays(i.toLong())
-                            val expectedDayName = diasSemana[targetDate.dayOfWeek.value % 7]
-                            val savedTemp = prefs.getString("c_temp_$i", "") ?: ""
-                            val parts = savedTemp.split("/")
-                            val maxT = parts.getOrNull(0)?.trim() ?: ""
-                            val minT = parts.getOrNull(1)?.trim() ?: ""
-                            val rawWind = prefs.getString("c_wind_$i", "") ?: ""
-                            val savedWindSpeed = prefs.getInt("c_wind_speed_$i", 0)
-                            val savedMoonPhoto = prefs.getBoolean("c_moon_$i", false)
-
-                            daysData.add(
-                                DayForecast(
-                                    dayName = expectedDayName,
-                                    icon = prefs.getString("c_icon_$i", "⛅") ?: "⛅",
-                                    windText = sanitizeWidgetWind(rawWind),
-                                    windSpeedVal = savedWindSpeed,
-                                    maxTemp = maxT,
-                                    minTemp = minT,
-                                    rainStr = prefs.getString("c_rain_$i", "") ?: "",
-                                    hasGoodMoonPhoto = savedMoonPhoto,
-                                    uvMax = prefs.getInt("c_uv_$i", 0),
-                                    uvStart = prefs.getString("c_uv_start_$i", "") ?: "",
-                                    uvEnd = prefs.getString("c_uv_end_$i", "") ?: ""
-                                )
-                            )
-                        }
-                    }
-
-                    // Obtenemos avisos AEMET / meteorológicos para resaltar la línea por día individual
-                    var multiDayWarnings: List<WeatherNotificationHelper.AemetDayWarning> = emptyList()
-                    try {
-                        val widgetDailySummaries = daysData.mapIndexed { index, d ->
-                            val date = java.time.LocalDate.now().plusDays(index.toLong())
-                            val fullLabel = when (index) {
-                                0 -> "Hoy"
-                                1 -> "Mañana"
-                                else -> "${d.dayName} (${date.dayOfMonth}/${date.monthValue})"
-                            }
-                            MainActivity.DailySummary(
-                                date = date,
-                                dayName = d.dayName,
-                                fullDayLabel = fullLabel,
-                                icon = d.icon,
-                                windText = d.windText,
-                                windSpeedVal = d.windSpeedVal,
-                                maxTemp = d.maxTemp,
-                                minTemp = d.minTemp,
-                                rainStr = d.rainStr,
-                                uvStart = d.uvStart,
-                                uvEnd = d.uvEnd
-                            )
-                        }
-
-                        multiDayWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(
-                            context, locInfo.municipioCode, locInfo.lat, locInfo.lon, widgetDailySummaries
-                        )
-                    } catch (e: Exception) {
-                        // Fallback silencioso
-                    }
-
-                    // Pintamos los dos widgets con los mismos datos
-                    val darkIds = appWidgetManager.getAppWidgetIds(
-                        ComponentName(context, WeatherWidgetProvider::class.java)
-                    )
-                    val lightIds = appWidgetManager.getAppWidgetIds(
-                        ComponentName(context, LightWeatherWidgetProvider::class.java)
-                    )
-
-                    applyToWidgets(
-                        context, appWidgetManager, darkIds, R.layout.widget_weather,
-                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, multiDayWarnings
-                    )
-                    applyToWidgets(
-                        context, appWidgetManager, lightIds, R.layout.widget_weather_light,
-                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, multiDayWarnings
-                    )
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                pendingResult.finish()
+            val levels = listOf(tempLevel, rainLevel, windLevel, uvLevel)
+            return when {
+                levels.contains(0) -> "🏃🔴"
+                levels.contains(1) -> "🏃🟡"
+                else -> "🏃🟢 8h"
             }
         }
-    }
 
     private fun getWarningLevelForDay(
         dayIndex: Int,
@@ -484,6 +531,24 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         return highestLevel
     }
 
+    fun formatUvRangeForWidget(startRaw: String, endRaw: String): String {
+        if (startRaw.isBlank()) return ""
+        if (startRaw.contains("-")) return startRaw
+
+        if (endRaw.isBlank()) {
+            return startRaw
+        }
+
+        val startInt = startRaw.toIntOrNull() ?: return startRaw
+        val endInt = endRaw.toIntOrNull() ?: return startRaw
+
+        if (startInt == endInt) return "$startInt"
+
+        val sDisplay = if (startInt > 12) startInt - 12 else if (startInt == 0) 12 else startInt
+        val eDisplay = if (endInt > 12) endInt - 12 else if (endInt == 0) 12 else endInt
+        return "$sDisplay-$eDisplay"
+    }
+
     private fun applyToWidgets(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -502,23 +567,16 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val isDark = (layoutRes == R.layout.widget_weather)
         val rootBg = if (isDark) R.drawable.bg_widget else R.drawable.bg_widget_light
 
-        val cardIds = listOf(R.id.card0, R.id.card1, R.id.card2, R.id.card3)
-        val alertBellIds = listOf(R.id.alertBell0, R.id.alertBell1, R.id.alertBell2, R.id.alertBell3)
-        val iconIds = listOf(R.id.icon0, R.id.icon1, R.id.icon2, R.id.icon3)
-        val dayIds = listOf(R.id.day0, R.id.day1, R.id.day2, R.id.day3)
-        val camIds = listOf(R.id.cam0, R.id.cam1, R.id.cam2, R.id.cam3)
-        val windIds = listOf(R.id.wind0, R.id.wind1, R.id.wind2, R.id.wind3)
-        val tempIds = listOf(R.id.temp0, R.id.temp1, R.id.temp2, R.id.temp3)
-        val rainIds = listOf(R.id.rain0, R.id.rain1, R.id.rain2, R.id.rain3)
-        val uvStartIds = listOf(R.id.uvStart0, R.id.uvStart1, R.id.uvStart2, R.id.uvStart3)
-        val uvEndIds = listOf(R.id.uvEnd0, R.id.uvEnd1, R.id.uvEnd2, R.id.uvEnd3)
-        val uvIconIds = listOf(R.id.uvIcon0, R.id.uvIcon1, R.id.uvIcon2, R.id.uvIcon3)
-
         ids.forEach { appWidgetId ->
             val views = RemoteViews(context.packageName, layoutRes)
             views.setInt(R.id.widgetRoot, "setBackgroundResource", rootBg)
 
-            // Al pulsar el widget se abre la app y se fuerza la actualización de todo
+            val serviceIntent = Intent(context, Weather7DaysWidgetService::class.java).apply {
+                putExtra("is_dark_theme", isDark)
+                data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+            }
+            views.setRemoteAdapter(R.id.lvWidgetDays, serviceIntent)
+
             val openAppIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_REFRESH_FROM_WIDGET, true)
@@ -527,93 +585,31 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 context, 0, openAppIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            views.setPendingIntentTemplate(R.id.lvWidgetDays, openAppPendingIntent)
             views.setOnClickPendingIntent(R.id.widgetRoot, openAppPendingIntent)
+
+            // Al pulsar la hora del widget (tvUpdateTime) se fuerza una descarga inmediata
+            val refreshIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+            }
+            val refreshPendingIntent = PendingIntent.getBroadcast(
+                context, 0, refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.tvUpdateTime, refreshPendingIntent)
 
             // Ubicación actual + Temp actual + UV actual (si UV >= 3)
             val uvHeaderStr = if (currentUv >= 3) "  UV$currentUv" else ""
             views.setTextViewText(R.id.tvHeaderCityTemp, "📍 $cityName $currentTemp°$uvHeaderStr")
 
-            // Hora de actualización del widget (limpia de iconos de luna)
-            val displayTime = if (updateTimeStr == "--:--") "" else updateTimeStr
+            // Hora de actualización del widget
+            val timeColor = if (isDark) Color.parseColor("#A0AEC0") else Color.parseColor("#718096")
+            val displayTime = if (updateTimeStr == "--:--" || updateTimeStr.isEmpty()) "" else updateTimeStr
+
             views.setTextViewText(R.id.tvUpdateTime, displayTime)
+            views.setTextColor(R.id.tvUpdateTime, timeColor)
 
-            if (daysData.isNotEmpty()) {
-                val isDark = (layoutRes == R.layout.widget_weather)
-                for (i in 0 until minOf(4, daysData.size)) {
-                    val d = daysData[i]
-                    views.setTextViewText(iconIds[i], d.icon)
-                    views.setTextViewText(dayIds[i], d.dayName)
-                    if (d.hasGoodMoonPhoto) {
-                        views.setViewVisibility(camIds[i], android.view.View.VISIBLE)
-                        views.setTextViewText(camIds[i], "📷")
-                    } else {
-                        views.setViewVisibility(camIds[i], android.view.View.GONE)
-                    }
-
-                    val warningLevel = getWarningLevelForDay(i, d, multiDayWarnings)
-
-                    if (warningLevel != null) {
-                        val bellColor = when (warningLevel) {
-                            "ROJO" -> if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#DC2626")
-                            "NARANJA" -> if (isDark) Color.parseColor("#FF9F0A") else Color.parseColor("#DD6B20")
-                            "AMARILLO" -> if (isDark) Color.parseColor("#FFD60A") else Color.parseColor("#D69E2E")
-                            else -> 0
-                        }
-                        if (bellColor != 0) {
-                            views.setViewVisibility(alertBellIds[i], android.view.View.VISIBLE)
-                            views.setTextViewText(alertBellIds[i], "🔔")
-                            views.setTextColor(alertBellIds[i], bellColor)
-                        } else {
-                            views.setViewVisibility(alertBellIds[i], android.view.View.GONE)
-                        }
-                    } else {
-                        views.setViewVisibility(alertBellIds[i], android.view.View.GONE)
-                    }
-
-                    val isWeekend = (d.dayName == "S" || d.dayName == "D")
-                    if (isWeekend) {
-                        val bgRes = if (isDark) R.drawable.bg_weekend_dark else R.drawable.bg_weekend_light
-                        views.setInt(cardIds[i], "setBackgroundResource", bgRes)
-                        val dayColor = if (isDark) Color.parseColor("#ED8936") else Color.parseColor("#DD6B20")
-                        views.setTextColor(dayIds[i], dayColor)
-                    } else {
-                        views.setInt(cardIds[i], "setBackgroundResource", 0)
-                        val dayColor = if (isDark) Color.parseColor("#FFD700") else Color.parseColor("#D69E2E")
-                        views.setTextColor(dayIds[i], dayColor)
-                    }
-
-                    val windSpeed = if (d.windSpeedVal > 0) d.windSpeedVal else {
-                        d.windText.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
-                    }
-                    val isWindHigh = windSpeed >= 30
-                    val windColor = if (isWindHigh) {
-                        if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#E53E3E")
-                    } else {
-                        if (isDark) Color.parseColor("#B0C4DE") else Color.parseColor("#4A5568")
-                    }
-
-                    views.setTextViewText(windIds[i], sanitizeWidgetWind(d.windText))
-                    views.setTextColor(windIds[i], windColor)
-                    if (d.maxTemp.isNotEmpty()) {
-                        val maxVal = d.maxTemp.toIntOrNull() ?: 0
-                        val minVal = d.minTemp.toIntOrNull() ?: 99
-
-                        val tempColor = when {
-                            maxVal >= 30 -> if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#E53E3E")
-                            minVal <= 10 -> if (isDark) Color.parseColor("#63B3ED") else Color.parseColor("#3182CE")
-                            else -> if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#1A202C")
-                        }
-
-                        views.setTextViewText(tempIds[i], "${d.maxTemp} / ${d.minTemp}")
-                        views.setTextColor(tempIds[i], tempColor)
-                    }
-                    views.setTextViewText(rainIds[i], d.rainStr)
-                    views.setTextViewText(uvStartIds[i], d.uvStart)
-                    views.setTextViewText(uvEndIds[i], d.uvEnd)
-                    views.setTextViewText(uvIconIds[i], if (d.uvStart.isNotEmpty()) "☀️" else "")
-                }
-            }
-
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     }
@@ -658,7 +654,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun sanitizeWidgetWind(raw: String): String {
+    @JvmStatic
+    fun sanitizeWidgetWind(raw: String): String {
         return raw.replace("\n", " ")
             .replace("km/h", "", ignoreCase = true)
             .replace("|", "")
@@ -678,6 +675,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    @JvmStatic
     @SuppressLint("MissingPermission")
     fun resolveLocationAndMunicipio(context: Context): LocationData {
         val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
@@ -767,80 +765,19 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         return null
     }
 
+    @JvmStatic
     fun fetchAemetForecast(context: Context, municipioCode: String, lat: Double, lon: Double, days: Int = 4): List<DayForecast> {
-        val apiKey = getAemetApiKey(context)
-        if (municipioCode.isBlank() || apiKey.isBlank()) return emptyList()
-        return try {
-            val step1Url = "https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/$municipioCode/?api_key=${apiKey.trim()}"
-            val step1Response = httpGet(step1Url, Charset.forName("UTF-8")) ?: return emptyList()
-            val step1Json = JSONObject(step1Response)
-            if (step1Json.optInt("estado") != 200) return emptyList()
-
-            val datosUrl = step1Json.getString("datos")
-            val step2Response = httpGet(datosUrl, Charset.forName("ISO-8859-15")) ?: return emptyList()
-            val rootArray = JSONArray(step2Response)
-            val diasArray = rootArray.getJSONObject(0)
-                .getJSONObject("prediccion")
-                .getJSONArray("dia")
-
-            val aemetDaysList = mutableListOf<JSONObject>()
-            for (i in 0 until diasArray.length()) {
-                aemetDaysList.add(diasArray.getJSONObject(i))
-            }
-
-            val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
-            val result = mutableListOf<DayForecast>()
-            val nowDate = LocalDate.now()
-
-            for (idx in 0 until days) {
-                val targetDate = nowDate.plusDays(idx.toLong())
-                val diaObj = aemetDaysList.firstOrNull { 
-                    try {
-                        val fechaStr = it.optString("fecha", "").substring(0, 10)
-                        LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd")) == targetDate
-                    } catch (_: Exception) { false }
-                } ?: aemetDaysList.getOrNull(idx) ?: continue
-
-                val dayName = diasSemana[targetDate.dayOfWeek.value % 7]
-
-                val tempObj = diaObj.getJSONObject("temperatura")
-                val maxTemp = tempObj.optString("maxima", "--")
-                val minTemp = tempObj.optString("minima", "--")
-
-                val rainMm = extractMaxDoubleFromPeriodArray(diaObj.optJSONArray("precipitacion"))
-                val rainStr = formatWidgetLitersWithoutUnit(rainMm)
-
-                val skyCode = extractFirstNonEmptyString(diaObj.optJSONArray("estadoCielo"), "value")
-                val icon = aemetSkyToEmoji(skyCode)
-
-                val (dir, speed) = extractMainWind(diaObj.optJSONArray("viento"))
-                val rachaMax = extractMaxIntFromPeriodArray(diaObj.optJSONArray("rachaMax"))
-                val windText = if (rachaMax > speed && rachaMax > 0) {
-                    "${windDirToArrow(dir)} ${windSpeedToBars(speed)}$speed ($rachaMax)"
-                } else {
-                    "${windDirToArrow(dir)} ${windSpeedToBars(speed)}$speed"
-                }
-
-                val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
-                val sunData = MainActivityHelper.calculateSunTimesStatic(targetDate, lat, lon)
-                val diffRise = if (moonData.riseTotalMins >= 0) abs(sunData.sunsetTotalMins - moonData.riseTotalMins) else 999
-                val diffSet = if (moonData.setTotalMins >= 0) abs(moonData.setTotalMins - sunData.sunriseTotalMins) else 999
-                val isGoodMoon = diffRise <= 90 || diffSet <= 90
-
-                result.add(DayForecast(dayName, icon, windText, speed, maxTemp, minTemp, rainStr, isGoodMoon))
-            }
-            result
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return emptyList()
     }
 
-    fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 4): Triple<String?, List<DayForecast>, Int> {
+    @JvmStatic
+    fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 4, context: Context? = null): Triple<String?, List<DayForecast>, Int> {
+        val prefs = context?.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         return try {
             val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
                     "&current=temperature_2m,uv_index" +
-                    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max" +
-                    "&hourly=uv_index" +
+                    "&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max" +
+                    "&hourly=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,uv_index" +
                     "&timezone=Europe%2FMadrid&forecast_days=${days + 2}"
             val resp = httpGet(url, Charset.forName("UTF-8")) ?: return Triple(null, emptyList(), 0)
             val json = JSONObject(resp)
@@ -857,6 +794,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             val mins = daily.getJSONArray("temperature_2m_min")
             val rains = daily.getJSONArray("precipitation_sum")
             val windSpeeds = daily.getJSONArray("wind_speed_10m_max")
+            val windGusts = daily.optJSONArray("wind_gusts_10m_max")
             val windDirs = daily.getJSONArray("wind_direction_10m_dominant")
             val sunsets = daily.optJSONArray("sunset")
             val uvs = daily.optJSONArray("uv_index_max")
@@ -889,25 +827,86 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             val list = mutableListOf<DayForecast>()
             val nowDate = LocalDate.now()
 
+            val nowHour = java.time.LocalTime.now().hour
+
             for (idx in 0 until days) {
                 val targetDate = nowDate.plusDays(idx.toLong())
                 val i = omByDate[targetDate] ?: continue
                 val fechaStr = targetDate.toString()
                 val dayName = diasSemana[targetDate.dayOfWeek.value % 7]
 
-                val icon = wmoCodeToEmoji(codes.optInt(i, 0))
-                val maxT = maxs.optDouble(i, 0.0).roundToInt().toString()
-                val minT = mins.optDouble(i, 0.0).roundToInt().toString()
+                val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
+                var icon = wmoCodeToEmoji(codes.optInt(i, 0))
+                var maxT = maxs.optDouble(i, 0.0).roundToInt().toString()
+                var minT = mins.optDouble(i, 0.0).roundToInt().toString()
 
-                val rainMm = rains.optDouble(i, 0.0)
-                val rainStr = formatWidgetLitersWithoutUnit(rainMm)
-
-                val wSpeed = windSpeeds.optDouble(i, 0.0).roundToInt()
+                var rainMm = rains.optDouble(i, 0.0)
+                var wSpeed = windSpeeds.optDouble(i, 0.0).roundToInt()
+                var wGust = if (windGusts != null && !windGusts.optDouble(i, 0.0).isNaN()) windGusts.optDouble(i, 0.0).roundToInt() else wSpeed
                 val wDeg = windDirs.optInt(i, 0)
-                val windText = "${degreesToArrow(wDeg)} ${windSpeedToBars(wSpeed)}$wSpeed"
+                var uvMax = if (uvs != null && !uvs.optDouble(i, 0.0).isNaN()) uvs.optDouble(i, 0.0).roundToInt() else 0
 
-                val uvRaw = uvs?.optDouble(i, 0.0) ?: 0.0
-                val uvMax = if (uvRaw.isNaN()) 0 else uvRaw.roundToInt()
+                // Para Hoy (idx == 0): calcular la previsión solo para lo que queda de día (desde la hora actual)
+                if (idx == 0 && hourlyObj != null) {
+                    val hourlyTemps = hourlyObj.optJSONArray("temperature_2m")
+                    val hourlyRains = hourlyObj.optJSONArray("precipitation")
+                    val hourlyWinds = hourlyObj.optJSONArray("wind_speed_10m")
+                    val hourlyGusts = hourlyObj.optJSONArray("wind_gusts_10m")
+                    val hourlyCodes = hourlyObj.optJSONArray("weather_code")
+
+                    val remTemps = mutableListOf<Double>()
+                    var remRainSum = 0.0
+                    var remWindMax = 0.0
+                    var remGustMax = 0.0
+                    val remCodes = mutableListOf<Int>()
+                    val remUvs = mutableListOf<Double>()
+
+                    if (hourlyTime != null) {
+                        for (k in 0 until hourlyTime.length()) {
+                            val tStr = hourlyTime.optString(k, "")
+                            if (tStr.startsWith(fechaStr)) {
+                                val h = if (tStr.length >= 13) tStr.substring(11, 13).toIntOrNull() ?: 0 else 0
+                                if (h >= nowHour) {
+                                    if (hourlyTemps != null && !hourlyTemps.optDouble(k, Double.NaN).isNaN()) {
+                                        remTemps.add(hourlyTemps.optDouble(k))
+                                    }
+                                    if (hourlyRains != null && !hourlyRains.optDouble(k, Double.NaN).isNaN()) {
+                                        remRainSum += hourlyRains.optDouble(k)
+                                    }
+                                    if (hourlyWinds != null && !hourlyWinds.optDouble(k, Double.NaN).isNaN()) {
+                                        remWindMax = maxOf(remWindMax, hourlyWinds.optDouble(k))
+                                    }
+                                    if (hourlyGusts != null && !hourlyGusts.optDouble(k, Double.NaN).isNaN()) {
+                                        remGustMax = maxOf(remGustMax, hourlyGusts.optDouble(k))
+                                    }
+                                    if (hourlyCodes != null) {
+                                        remCodes.add(hourlyCodes.optInt(k))
+                                    }
+                                    if (hourlyUv != null && !hourlyUv.optDouble(k, Double.NaN).isNaN()) {
+                                        remUvs.add(hourlyUv.optDouble(k))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (remTemps.isNotEmpty()) {
+                        maxT = remTemps.maxOrNull()?.roundToInt()?.toString() ?: maxT
+                        minT = remTemps.minOrNull()?.roundToInt()?.toString() ?: minT
+                    }
+                    rainMm = remRainSum
+                    if (remWindMax > 0) wSpeed = remWindMax.roundToInt()
+                    if (remGustMax > 0) wGust = remGustMax.roundToInt()
+                    if (remUvs.isNotEmpty()) uvMax = maxOf(0, remUvs.maxOrNull()?.roundToInt() ?: 0)
+                    if (remCodes.isNotEmpty()) icon = Companion.wmoCodeToEmoji(remCodes.first())
+                }
+
+                val rainStr = formatWidgetLitersWithoutUnit(rainMm)
+                val windText = if (wGust > wSpeed && wGust > 0) {
+                    "${degreesToArrow(wDeg)} $wSpeed ($wGust)"
+                } else {
+                    "${degreesToArrow(wDeg)} $wSpeed"
+                }
 
                 var uvStart = ""
                 var uvEnd = ""
@@ -915,18 +914,23 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     var firstHourWithUv3 = -1
                     var lastHourWithUv3 = -1
 
+                    val minHourToConsider = if (idx == 0) nowHour else 0
+
                     for (k in 0 until minOf(hourlyTime.length(), hourlyUv.length())) {
                         val tStr = hourlyTime.optString(k, "")
                         if (tStr.startsWith(fechaStr)) {
-                            val uvVal = hourlyUv.optDouble(k, 0.0)
-                            if (uvVal >= 2.95) {
-                                val hour = if (tStr.length >= 13) {
-                                    tStr.substring(11, 13).toIntOrNull() ?: 0
-                                } else 0
-                                if (firstHourWithUv3 == -1) {
-                                    firstHourWithUv3 = hour
+                            val hour = if (tStr.length >= 13) {
+                                tStr.substring(11, 13).toIntOrNull() ?: 0
+                            } else 0
+
+                            if (hour >= minHourToConsider) {
+                                val uvVal = hourlyUv.optDouble(k, 0.0)
+                                if (uvVal >= 2.95) {
+                                    if (firstHourWithUv3 == -1) {
+                                        firstHourWithUv3 = hour
+                                    }
+                                    lastHourWithUv3 = hour
                                 }
-                                lastHourWithUv3 = hour
                             }
                         }
                     }
@@ -937,8 +941,10 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     }
                 }
 
-                val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
                 val sunData = MainActivityHelper.calculateSunTimesStatic(targetDate, lat, lon)
+                val sunriseH = sunData.sunriseHour
+                val sunsetH = sunData.sunsetHour
+
                 val sunsetIso = sunsets?.optString(i, "") ?: ""
                 val sunsetMins = if (sunsetIso.length >= 16) {
                     val h = sunsetIso.substring(11, 13).toIntOrNull() ?: 18
@@ -951,9 +957,59 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
                 val diffRise = if (moonData.riseTotalMins >= 0) abs(sunsetMins - moonData.riseTotalMins) else 999
                 val diffSet = if (moonData.setTotalMins >= 0) abs(moonData.setTotalMins - sunriseMins) else 999
-                val isGoodMoon = diffRise <= 90 || diffSet <= 90
+                val rawGoodMoon = diffRise <= 90 || diffSet <= 90
 
-                list.add(DayForecast(dayName, icon, windText, wSpeed, maxT, minT, rainStr, isGoodMoon, uvMax, uvStart, uvEnd))
+                val isGoodMoon = if (idx == 0 && rawGoodMoon) {
+                    val nowMins = nowHour * 60 + java.time.LocalTime.now().minute
+                    val riseFuture = moonData.riseTotalMins >= nowMins
+                    val setFuture = moonData.setTotalMins >= nowMins
+                    (diffRise <= 90 && riseFuture) || (diffSet <= 90 && setFuture)
+                } else {
+                    rawGoodMoon
+                }
+
+                var greenCount = 0
+                if (hourlyObj != null && hourlyTime != null) {
+                    val hourlyTemps = hourlyObj.optJSONArray("temperature_2m")
+                    val hourlyRains = hourlyObj.optJSONArray("precipitation")
+                    val hourlyWinds = hourlyObj.optJSONArray("wind_speed_10m")
+                    val hourlyUvs = hourlyObj.optJSONArray("uv_index")
+
+                    val optMinT = prefs?.getInt("outdoor_temp_opt_min", 10) ?: 10
+                    val optMaxT = prefs?.getInt("outdoor_temp_opt_max", 24) ?: 24
+
+                    val rainOptMax = (prefs?.getFloat("outdoor_rain_opt_max", 0.0f) ?: 0.0f).toDouble()
+                    val windOptMax = prefs?.getInt("outdoor_wind_opt_max", 25) ?: 25
+                    val uvOptMax = prefs?.getInt("outdoor_uv_opt_max", 5) ?: 5
+
+                    val startH = if (idx == 0) maxOf(sunriseH, nowHour) else sunriseH
+
+                    for (k in 0 until minOf(hourlyTime.length(), hourlyTemps?.length() ?: 0)) {
+                        val tStr = hourlyTime.optString(k, "")
+                        if (tStr.startsWith(fechaStr)) {
+                            val h = if (tStr.length >= 13) tStr.substring(11, 13).toIntOrNull() ?: 0 else 0
+                            if (h in startH..sunsetH) {
+                                val t = hourlyTemps?.optDouble(k, 20.0) ?: 20.0
+                                val r = hourlyRains?.optDouble(k, 0.0) ?: 0.0
+                                val w = hourlyWinds?.optDouble(k, 10.0) ?: 10.0
+                                val uv = hourlyUvs?.optDouble(k, 0.0) ?: 0.0
+
+                                val tOk = (t >= optMinT && t <= optMaxT)
+                                val rOk = (r <= rainOptMax)
+                                val wOk = (w <= windOptMax)
+                                val uvOk = (uv <= uvOptMax)
+
+                                if (tOk && rOk && wOk && uvOk) {
+                                    greenCount++
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val badge = "🏃 $greenCount h"
+
+                list.add(DayForecast(dayName, icon, windText, wSpeed, maxT, minT, rainStr, isGoodMoon, uvMax, uvStart, uvEnd, outdoorBadge = badge))
             }
             Triple(currentTemp, list, currentUv)
         } catch (e: Exception) {
@@ -962,11 +1018,9 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     private fun formatWidgetLitersWithoutUnit(mm: Double): String {
-        if (mm <= 0.0) return ""
-        if (mm < 0.5) return "💧0"
         val rounded = mm.roundToInt()
-        val valStr = if (rounded <= 0) "0" else "$rounded"
-        return "💧$valStr"
+        if (rounded <= 0) return ""
+        return "💧$rounded"
     }
 
     private fun httpGet(urlStr: String, charset: Charset): String? {
@@ -984,6 +1038,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    @JvmStatic
     fun extractMaxDoubleFromPeriodArray(arr: JSONArray?): Double {
         if (arr == null) return 0.0
         var maxVal = 0.0
@@ -1010,6 +1065,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         return maxVal
     }
 
+    @JvmStatic
     fun extractFirstNonEmptyString(arr: JSONArray?, key: String): String {
         if (arr == null) return ""
         for (i in 0 until arr.length()) {
@@ -1065,25 +1121,26 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         else -> "|||"
     }
 
-    private fun aemetSkyToEmoji(code: String): String {
-        val clean = code.replace("n", "").trim()
-        return when {
-            clean == "11" -> "☀️"
-            clean in listOf("12", "13", "14", "17", "23", "24", "43", "44", "45") -> "⛅"
-            clean in listOf("15", "16", "71", "72", "73", "74", "75") || clean.startsWith("8") -> "☁️"
-            clean.startsWith("2") || clean.startsWith("4") || clean.startsWith("5") || clean.startsWith("6") -> "🌧️"
-            clean.startsWith("3") || clean.startsWith("7") -> "❄️"
+        private fun aemetSkyToEmoji(code: String): String {
+            val clean = code.replace("n", "").trim()
+            return when {
+                clean == "11" -> "☀️"
+                clean in listOf("12", "13", "14", "17", "23", "24", "43", "44", "45") -> "⛅"
+                clean in listOf("15", "16", "71", "72", "73", "74", "75") || clean.startsWith("8") -> "☁️"
+                clean.startsWith("2") || clean.startsWith("4") || clean.startsWith("5") || clean.startsWith("6") -> "🌧️"
+                clean.startsWith("3") || clean.startsWith("7") -> "❄️"
+                else -> "⛅"
+            }
+        }
+
+        private fun wmoCodeToEmoji(code: Int): String = when (code) {
+            0 -> "☀️"
+            1, 2 -> "⛅"
+            3, 45, 48 -> "☁️"
+            in 51..67, in 80..82 -> "🌧️"
+            in 71..77 -> "❄️"
+            in 95..99 -> "⛈️"
             else -> "⛅"
         }
-    }
-
-    private fun wmoCodeToEmoji(code: Int): String = when (code) {
-        0 -> "☀️"
-        1, 2 -> "⛅"
-        3, 45, 48 -> "☁️"
-        in 51..67, in 80..82 -> "🌧️"
-        in 71..77 -> "❄️"
-        in 95..99 -> "⛈️"
-        else -> "⛅"
     }
 }

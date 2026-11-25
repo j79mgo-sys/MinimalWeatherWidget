@@ -82,7 +82,7 @@ class WeatherNotificationWorker(
         }
 
         // Obtener ubicación
-        val loc = WeatherWidgetProvider().resolveLocationAndMunicipio(appContext)
+        val loc = WeatherWidgetProvider.resolveLocationAndMunicipio(appContext)
 
         // Consultar previsión de Open-Meteo
         val forecastPair = fetchForecastData(loc.lat, loc.lon) ?: return Result.retry()

@@ -60,8 +60,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var stickyContainer: LinearLayout
     private lateinit var btnStarSticky: TextView
     private lateinit var stickyTitle: TextView
-    private lateinit var sourceAemetView: TextView
-    private lateinit var sourceBackupView: TextView
     private lateinit var stickyHeaderDay: TextView
     private lateinit var stickyTimeView: TextView
     private lateinit var scrollView: ScrollView
@@ -150,24 +148,36 @@ class MainActivity : ComponentActivity() {
             setPadding(dp(16), dp(195), dp(16), dp(32))
         }
 
-        sourceAemetView = TextView(this).apply {
-            text = "• AEMET: Verificando..."
-            textSize = 12f
-            setTextColor(Color.parseColor("#4A5568"))
-            setPadding(dp(4), dp(1), dp(4), dp(1))
-        }
-
-        sourceBackupView = TextView(this).apply {
-            text = "• Fuente de respaldo: Verificando..."
-            textSize = 12f
-            setTextColor(Color.parseColor("#718096"))
-            setPadding(dp(4), dp(1), dp(4), dp(10))
-        }
-
-        contentLayout.addView(sourceAemetView)
-        contentLayout.addView(sourceBackupView)
         scrollView.addView(contentLayout)
         rootLayout.addView(scrollView)
+
+        fun createHeaderIconButton(
+            emojiIcon: String,
+            onClick: () -> Unit
+        ): TextView {
+            return TextView(this).apply {
+                text = emojiIcon
+                textSize = 23f
+                setTextColor(Color.parseColor("#1A202C"))
+                gravity = Gravity.CENTER
+                minWidth = dp(38)
+                minHeight = dp(38)
+                setPadding(dp(5), dp(2), dp(5), dp(2))
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#EBF8FF"))
+                    cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), Color.parseColor("#BEE3F8"))
+                }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { onClick() }
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0, 0, dp(4), 0) }
+                layoutParams = lp
+            }
+        }
 
         stickyContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -210,7 +220,7 @@ class MainActivity : ComponentActivity() {
         row1.addView(stickyTitle)
         row1.addView(btnStarSticky)
 
-        // Fila 2 (Intermedia): Hora de actualización a la izquierda | ⚙️ Configuración a la derecha
+        // Fila 2 (Intermedia): Act.: <hora> a la izquierda + Iconos de Configuración a la derecha
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -228,107 +238,48 @@ class MainActivity : ComponentActivity() {
             ).apply { setMargins(0, 0, dp(6), 0) }
         }
 
-        val row2Spacer = View(this).apply {
+        val row2LeftSpacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1.0f)
+        }
+        val row2RightSpacer = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, 0, 1.0f)
         }
 
-        val btnSettings = TextView(this).apply {
-            text = "⚙️ Configuración"
-            textSize = 12.5f
-            setTextColor(Color.parseColor("#2D3748"))
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            minHeight = dp(38)
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EDF2F7"))
-                cornerRadius = dp(10).toFloat()
+        val btnNotif = createHeaderIconButton("🔔") {
+            WeatherNotificationHelper.showNotificationSettingsDialog(this@MainActivity) {
+                checkAndRequestNotificationPermission()
             }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { showMasterSettingsDialog() }
         }
+        val btnTempMode = createHeaderIconButton("🌡️") { showTempTypeDialog() }
+        val btnWidgetConfig = createHeaderIconButton("⚙️") { showWidgetConfigDialog() }
+        val btnSports = createHeaderIconButton("🏃") { showOutdoorSportsSettingsDialog() }
 
         row2.addView(stickyTimeView)
-        row2.addView(row2Spacer)
-        row2.addView(btnSettings)
+        row2.addView(row2LeftSpacer)
+        row2.addView(btnNotif)
+        row2.addView(btnTempMode)
+        row2.addView(btnWidgetConfig)
+        row2.addView(btnSports)
+        row2.addView(row2RightSpacer)
 
-        // Fila 3 (Inferior): Ubicación, Mapas, Embalses, Ayuda
+        // Fila 3 (Inferior): Ubicación, Mapas, Web, Embalses, Manual/Guía (Centrada)
         val row3 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             setPadding(0, dp(2), 0, dp(2))
         }
 
-        val btnChangeCity = TextView(this).apply {
-            text = "📍 Ubic."
-            textSize = 12.5f
-            setTextColor(Color.parseColor("#3182CE"))
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            minHeight = dp(38)
-            setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EBF8FF"))
-                cornerRadius = dp(10).toFloat()
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { showCitySelectorDialog() }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, dp(6), 0) }
-            layoutParams = lp
-        }
-
-        val btnMaps = TextView(this).apply {
-            text = "🗺️ Mapas"
-            textSize = 12.5f
-            setTextColor(Color.parseColor("#2C5282"))
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            minHeight = dp(38)
-            setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EBF8FF"))
-                cornerRadius = dp(10).toFloat()
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { showAemetMapsDialog() }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, dp(6), 0) }
-            layoutParams = lp
-        }
-
-        val btnEmbalses = TextView(this).apply {
-            text = "💧 Embalses"
-            textSize = 12.5f
-            setTextColor(Color.parseColor("#2B6CB0"))
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            minHeight = dp(38)
-            setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EBF8FF"))
-                cornerRadius = dp(10).toFloat()
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { showReservoirsCommunitiesDialog() }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, dp(6), 0) }
-            layoutParams = lp
-        }
+        val btnChangeCity = createHeaderIconButton("📍") { showCitySelectorDialog() }
+        val btnMaps = createHeaderIconButton("🗺️") { showAemetMapsDialog() }
+        val btnWeb = createHeaderIconButton("🌐") { openWebVersion() }
+        val btnEmbalses = createHeaderIconButton("🏞️") { showReservoirsCommunitiesDialog() }
+        val btnHelp = createHeaderIconButton("📖") { showHelpManualDialog() }
 
         row3.addView(btnChangeCity)
         row3.addView(btnMaps)
+        row3.addView(btnWeb)
         row3.addView(btnEmbalses)
+        row3.addView(btnHelp)
 
         stickyHeaderDay = TextView(this).apply {
             text = ""
@@ -786,72 +737,30 @@ class MainActivity : ComponentActivity() {
               <li><b>⭐ Favoritos Rápidos</b>: Guarda tus ciudades habituales para cambiar entre ellas al instante con un solo toque desde la barra superior.</li>
             </ul>
 
-            <h4 style="color:#2B6CB0;">2. 📱 WIDGETS DE PANTALLA DE INICIO (MODO CLARO Y OSCURO)</h4>
+            <h4 style="color:#2B6CB0;">2. 📱 WIDGETS 4x2 CON SCROLL VERTICAL</h4>
             <ul>
-              <li><b>Widgets de 4 Días Adaptativos</b>: Consulta el tiempo actual y de los próximos días directamente en tu pantalla de inicio. Disponible en tema Oscuro y Claro.</li>
-              <li><b>⚠️ CAMPANITA DE AVISO AEMET EN LA FILA DEL VIENTO</b>: Si la AEMET emite un aviso para un día en concreto, <b>aparece una campanita 🔔 en la fila del viento al lado de la flecha y velocidad</b> (<b>🔴 ROJA</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLA</b> para riesgo moderado) manteniendo el fondo del widget limpio.</li>
-              <li><b>🗓️ Destacado de Fin de Semana</b>: Las columnas de Sábado (<b>S</b>) y Domingo (<b>D</b>) incluyen un fondo redondeado suave para distinguirlos rápidamente.</li>
-              <li><b>Simbología del Widget</b>:
-                <br/>• <i>Cabecera</i>: Municipio, temperatura actual e índice UV (si UV ≥ 3).
-                <br/>• <b>📷 🌕 (Camarita y Luna)</b>: Indica que en los próximos 4 días hay una ventana fotográfica óptima para fotografiar la Luna saliendo durante el atardecer.
-                <br/>• <b>💧 Litros de Precipitación</b>: Muestra la precipitación prevista en mm por día (acumulación real en litros/m²).
-                <br/>• <b>Horas + ☀️ (ej: 12/16 ☀️)</b>: Rango horario de inicio (arriba) y fin (abajo) de radiación UV alta (≥ 3).
-                <br/>• <i>Colores de Viento</i>: Flechas con velocidad (ej: ↗ 41 km/h) marcadas en rojo si superan 30 km/h.
-              </li>
+              <li><b>7 Días Desplazables</b>: Widget 4x2 claro u oscuro organizado en 2 filas de 4 columnas. Desliza hacia arriba dentro del widget para ver los días 5, 6 y 7.</li>
+              <li><b>Toque en la Hora (HH:mm)</b>: Fuerza una descarga en red inmediata de datos actualizados.</li>
+              <li><b>Toque en el Cuerpo</b>: Abre la aplicación principal.</li>
             </ul>
 
-            <h4 style="color:#2B6CB0;">3. ⚠️ TARJETA DE AVISOS Y PREVISIÓN 7 DÍAS</h4>
+            <h4 style="color:#2B6CB0;">3. 🏃 SEMÁFORO DEPORTE AL AIRE LIBRE</h4>
             <ul>
-              <li><b>Tarjetas de Previsión 7 Días</b>: Si la AEMET emite un aviso para un día en concreto, <b>la tarjeta de ese día específico en la app se enmarca con el color del aviso oficial</b> (<b>🔴 ROJO</b> para riesgo extremo, <b>🟠 NARANJA</b> para riesgo importante, o <b>🟡 AMARILLO</b> para riesgo moderado).</li>
-              <li><b>Tarjeta de Avisos AEMET (Fenómenos Adversos)</b>: Ubicada en la pantalla principal. Muestra el desglose oficial de riesgos meteorológicos (lluvia, viento, tormentas) con sus colores y descripciones oficiales.</li>
+              <li><b>Horas en Verde (🟢)</b>: Contabiliza las horas diurnas que cumplen tus criterios ideales de temperatura, lluvia, viento y UV.</li>
+              <li><b>Configuración 🏃</b>: Ajusta tus umbrales personales de temperatura, viento y lluvia desde el botón del corredor.</li>
             </ul>
 
-            <h4 style="color:#2B6CB0;">4. 🗺️ MAPAS OFICIALES AEMET Y VISUALIZACIÓN</h4>
+            <h4 style="color:#2B6CB0;">4. 📷 FOTOGRAFÍA LUNAR Y ASTRONOMÍA</h4>
             <ul>
-              <li>Accede desde el botón <b>🗺️ Mapas</b> en el encabezado.</li>
-              <li><b>7 Vistas Interactivas AEMET</b>:
-                <br/>• ⚠️ <b>Avisos</b>: Mapa general de avisos meteorológicos en España.
-                <br/>• 🌧️ <b>Radar de Lluvia</b>: Observación en tiempo real del mapa de precipitaciones.
-                <br/>• 🏖️ <b>Playas</b>: Predicción del tiempo y estado del mar en playas.
-                <br/>• 🛰️ <b>Satélite Meteosat</b>: Imágenes de satélite Meteosat actualizadas.
-                <br/>• 🌡️ <b>Temperaturas y Municipios</b>: Predicción por municipios y temperaturas.
-                <br/>• 🔥 <b>Incendios</b>: Riesgo meteorológico de incendios forestales.
-                <br/>• ⚡ <b>Rayos y Tormentas</b>: Mapa de descargas eléctricas y tormentas.
-              </li>
+              <li><b>Cámara Lunar 📷</b>: Indica noches con ventana fotográfica lunar óptima.</li>
+              <li><b>Detalle Astronómico</b>: Pulsa sobre cualquier hora lunar o icono de cámara para abrir el desglose de acimut, elevación y crepúsculos civil y náutico.</li>
             </ul>
 
-            <h4 style="color:#2B6CB0;">4. ⏱️ PREVISIÓN POR HORAS, ASTRONOMÍA Y MAREAS</h4>
+            <h4 style="color:#2B6CB0;">5. ⚙️ AJUSTES Y PERSONALIZACIÓN</h4>
             <ul>
-              <li><b>Línea Temporal Hora a Hora</b>: Desplazamiento horizontal con el pronóstico de temperatura, estado del cielo, lluvia en mm, velocidad de viento y nivel UV.</li>
-              <li><b>🌅 🌇 Sol y Fotoperíodo</b>: Horarios exactos de amanecer, atardecer y horas totales de luz solar.</li>
-              <li><b>🌙 Fases Lunares y Ventana Fotográfica 📷</b>: Horarios de salida/puesta de la Luna y porcentaje de iluminación. Se marca en azul como <b>📷 ¡Óptima!</b> cuando la salida/puesta de la Luna coincide con el atardecer/amanecer solar (±90 min / 1h 30m).</li>
-              <li><b>🌊 Mareas en Zonas Costeras</b>: Muestra las horas y alturas en metros de Pleamar (marea alta) y Bajamar (marea baja).</li>
-            </ul>
-
-            <h4 style="color:#2B6CB0;">5. 🔔 NOTIFICACIONES AUTOMÁTICAS Y CONFIGURACIÓN DE ALERTAS</h4>
-            <ul>
-              <li><b>Supervisión Diaria en Segundo Plano</b>: Un servicio WorkManager analiza automáticamente la previsión para el día de mañana.</li>
-              <li><b>11 Disparadores Personalizables</b>:
-                <br/>• ☔ <i>Lluvia/Precipitación</i> (umbral en mm).
-                <br/>• 💨 <i>Viento Fuerte</i> (umbral en km/h).
-                <br/>• 🌡️ <i>Calor Extremo</i> (máxima en °C).
-                <br/>• ❄️ <i>Frío Intenso</i> (mínima en °C).
-                <br/>• 🌨️ <i>Nieve o Aguanieve</i>.
-                <br/>• 🌩️ <i>Tormentas y Aparato Eléctrico</i>.
-                <br/>• ☀️ <i>Radiación UV Elevada</i> (UV ≥ 6).
-                <br/>• 🧊 <i>Heladas</i> (Mínima ≤ 0 °C).
-                <br/>• 📈 <i>Cambio Brusco de Temperatura</i> (diferencia ≥ 6 °C entre hoy y mañana).
-                <br/>• ⚠️ <i>Avisos Oficiales AEMET</i>.
-                <br/>• 📷 <i>Ventana Fotográfica de Luna</i>.
-              </li>
-              <li><b>Programación de Hora</b>: Elige a qué hora del atardecer/noche deseas recibir el resumen de alerta (ej: 20:00).</li>
-              <li><b>Vista Previa "Ver Alertas Previstas"</b>: Comprueba instantáneamente qué notificaciones se enviarían con el pronóstico actual.</li>
-            </ul>
-
-            <h4 style="color:#2B6CB0;">6. 🔑 CLAVE AEMET OPENDATA Y FUENTES DE DATOS</h4>
-            <ul>
-              <li><b>API Key AEMET (Opcional)</b>: Puedes vincular tu clave gratuita personal obtenida en AEMET OpenData desde el botón <b>🔑 AEMET</b> para obtener los datos oficiales del organismo estatal de meteorología en España.</li>
-              <li><b>Open-Meteo (Respaldo Automático)</b>: Si no introduces clave o consultas una ubicación internacional, la app utiliza la API global Open-Meteo de forma transparente y sin coste.</li>
+              <li><b>Termómetro 🌡️</b>: Alterna al instante entre Temperatura Real y Sensación Térmica.</li>
+              <li><b>Engranaje ⚙️</b>: Activa o desactiva la visibilidad de elementos en el widget.</li>
+              <li><b>Favoritos ⭐</b>: Guarda tus municipios habituales para cambio rápido.</li>
             </ul>
         """.trimIndent()
 
@@ -868,76 +777,6 @@ class MainActivity : ComponentActivity() {
             .setTitle("📖 Manual y Guía Completa de Uso")
             .setView(container)
             .setPositiveButton("Entendido", null)
-            .show()
-    }
-
-    private fun showAemetKeyDialog() {
-        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-        val currentKey = prefs.getString("user_aemet_api_key", "") ?: ""
-
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(10), dp(20), dp(10))
-        }
-
-        val msgView = TextView(this).apply {
-            text = "AEMET OpenData ofrece claves gratuitas para consultar datos meteorológicos oficiales.\n\n" +
-                    "• Si no introduces una clave, simplemente se usará Open-Meteo como fuente meteorológica de respaldo sin necesidad de registro.\n\n" +
-                    "• Puedes solicitar tu clave gratuita en:\nhttps://opendata.aemet.es/centrodedescargas/altaUsuario"
-            textSize = 13f
-            setTextColor(Color.parseColor("#4A5568"))
-            setPadding(0, 0, 0, dp(12))
-        }
-
-        val input = EditText(this).apply {
-            hint = "Pega aquí tu API Key de AEMET"
-            setText(currentKey)
-            textSize = 13f
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#F7FAFC"))
-                setStroke(dp(1), Color.parseColor("#CBD5E0"))
-                cornerRadius = dp(8).toFloat()
-            }
-        }
-
-        container.addView(msgView)
-        container.addView(input)
-
-        AlertDialog.Builder(this)
-            .setTitle("Clave API de AEMET")
-            .setView(container)
-            .setPositiveButton("Guardar") { dialog, _ ->
-                val newKey = input.text.toString().trim()
-                prefs.edit()
-                    .putString("user_aemet_api_key", newKey)
-                    .putLong("last_fetch_time", 0L)
-                    .putLong("last_hourly_fetch_time", 0L)
-                    .apply()
-
-                notifyWidgetsUpdate()
-                checkCacheAndLoadData(forceRefresh = true)
-                dialog.dismiss()
-            }
-            .setNeutralButton("Obtener Clave") { _, _ ->
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://opendata.aemet.es/centrodedescargas/altaUsuario"))
-                    startActivity(intent)
-                } catch (_: Exception) {}
-            }
-            .setNegativeButton(if (currentKey.isNotEmpty()) "Borrar Clave" else "Cancelar") { dialog, _ ->
-                if (currentKey.isNotEmpty()) {
-                    prefs.edit()
-                        .remove("user_aemet_api_key")
-                        .putLong("last_fetch_time", 0L)
-                        .putLong("last_hourly_fetch_time", 0L)
-                        .apply()
-
-                    notifyWidgetsUpdate()
-                    checkCacheAndLoadData(forceRefresh = true)
-                }
-                dialog.dismiss()
-            }
             .show()
     }
 
@@ -1006,6 +845,15 @@ class MainActivity : ComponentActivity() {
                 }
                 sendBroadcast(lightIntent)
             }
+
+            // Actualizar widget AEMET exclusivo 4x1
+            val aemetIds = manager.getAppWidgetIds(ComponentName(this, AemetOnly4x1WidgetProvider::class.java))
+            if (aemetIds.isNotEmpty()) {
+                val aemetIntent = Intent(this, AemetOnly4x1WidgetProvider::class.java).apply {
+                    action = AemetOnly4x1WidgetProvider.ACTION_REFRESH_AEMET_WIDGET
+                }
+                sendBroadcast(aemetIntent)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1060,17 +908,16 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (itemsList.isEmpty()) {
-                    itemsList = fetchAemetHourlyWithSunMoonAndTides(code, lat, lon)
-                    if (itemsList.isNotEmpty()) {
-                        sourceUsed = "Fuente: AEMET + Open-Meteo (Sol/Mareas)"
-                    } else {
-                        itemsList = fetchOpenMeteoHourlyWithSunMoonAndTides(lat, lon)
-                        sourceUsed = "Fuente: Open-Meteo (Meteo, Sol y Mareas)"
-                    }
+                    itemsList = fetchOpenMeteoHourlyWithSunMoonAndTides(lat, lon)
+                    sourceUsed = "Fuente: Open-Meteo"
 
                     if (itemsList.isNotEmpty()) {
                         updateTimeStr = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
                         saveHourlyCache(prefs, itemsList, sourceUsed, updateTimeStr, now, currentHourlyVersion)
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(this@MainActivity, "⚠️ Error al conectar con Open-Meteo. Mostrando datos previos.", android.widget.Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
 
@@ -1079,7 +926,7 @@ class MainActivity : ComponentActivity() {
                 lastLoadedItems = filteredItemsList
 
                 withContext(Dispatchers.Main) {
-                    stickyTimeView.text = "Actualizado: $updateTimeStr"
+                    stickyTimeView.text = "Act.: $updateTimeStr"
                     renderTimeline(city, filteredItemsList, sourceUsed, dailySummaries)
                 }
             } finally {
@@ -1203,24 +1050,8 @@ class MainActivity : ComponentActivity() {
     )
 
     private fun build7DaySummaries(code: String, lat: Double, lon: Double): List<DailySummary> {
-        val openMeteoData = WeatherWidgetProvider().fetchOpenMeteoFallbackAndCurrent(lat, lon, days = 7)
-        val openMeteoDays = openMeteoData.second
-        var fetchedDays = WeatherWidgetProvider().fetchAemetForecast(this, code, lat, lon, days = 7)
-
-        if (fetchedDays.isEmpty() && openMeteoDays.isNotEmpty()) {
-            fetchedDays = openMeteoDays
-        } else if (fetchedDays.isNotEmpty() && openMeteoDays.isNotEmpty()) {
-            fetchedDays = fetchedDays.mapIndexed { index, d ->
-                val omDay = openMeteoDays.firstOrNull { it.dayName == d.dayName }
-                    ?: openMeteoDays.getOrNull(index)
-                d.copy(
-                    rainStr = if (d.rainStr.isEmpty()) (omDay?.rainStr ?: "") else d.rainStr,
-                    uvMax = omDay?.uvMax ?: 0,
-                    uvStart = omDay?.uvStart ?: "",
-                    uvEnd = omDay?.uvEnd ?: ""
-                )
-            }
-        }
+        val openMeteoData = WeatherWidgetProvider.fetchOpenMeteoFallbackAndCurrent(lat, lon, days = 7)
+        val fetchedDays = openMeteoData.second
 
         val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
         val list = mutableListOf<DailySummary>()
@@ -1385,6 +1216,170 @@ class MainActivity : ComponentActivity() {
         return container
     }
 
+    private fun showLunarPhotoDetailSheet(date: LocalDate, city: String, lat: Double, lon: Double) {
+        val moon = MainActivityHelper.calculateAccurateMoonData(date, lat, lon)
+        val sun = MainActivityHelper.calculateSunTimesStatic(date, lat, lon)
+        val zone = ZoneId.of("Europe/Madrid")
+        val startOfDay = date.atStartOfDay(zone)
+
+        val formatDay = date.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale("es", "ES")))
+
+        val riseDetailsStr = if (moon.riseTotalMins >= 0) {
+            val zdtRise = startOfDay.plusMinutes(moon.riseTotalMins.toLong())
+            val (alt, az) = MainActivityHelper.getMoonAltAz(zdtRise, lat, lon)
+            val altSign = if (alt >= 0) "+${alt.roundToInt()}°" else "${alt.roundToInt()}°"
+            val azDeg = if (az.isNaN()) moon.riseAzimuth else az.roundToInt()
+            "${moon.riseTimeStr}  •  ${azimuthToCardinal(azDeg)}  •  Elevación: $altSign"
+        } else {
+            "No hay salida de la luna este día"
+        }
+
+        val setDetailsStr = if (moon.setTotalMins >= 0) {
+            val zdtSet = startOfDay.plusMinutes(moon.setTotalMins.toLong())
+            val (alt, az) = MainActivityHelper.getMoonAltAz(zdtSet, lat, lon)
+            val altSign = if (alt >= 0) "+${alt.roundToInt()}°" else "${alt.roundToInt()}°"
+            val azDeg = if (az.isNaN()) 270 else az.roundToInt()
+            "${moon.setTimeStr}  •  ${azimuthToCardinal(azDeg)}  •  Elevación: $altSign"
+        } else {
+            "No hay puesta de la luna este día"
+        }
+
+        val sunsetMins = sun.sunsetTotalMins
+        val sunriseMins = sun.sunriseTotalMins
+
+        val civilDuskMins = (sunsetMins + 30) % 1440
+        val nauticalDuskMins = (sunsetMins + 60) % 1440
+        val civilDawnMins = (sunriseMins - 30 + 1440) % 1440
+        val nauticalDawnMins = (sunriseMins - 60 + 1440) % 1440
+
+        fun fmtMins(m: Int) = String.format(Locale.US, "%02d:%02d", m / 60 % 24, m % 60)
+
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(24))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#FFFFFF"))
+                cornerRadii = floatArrayOf(
+                    dp(20).toFloat(), dp(20).toFloat(),
+                    dp(20).toFloat(), dp(20).toFloat(),
+                    0f, 0f, 0f, 0f
+                )
+            }
+        }
+
+        val handle = View(this).apply {
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#CBD5E0"))
+                cornerRadius = dp(3).toFloat()
+            }
+            val lp = LinearLayout.LayoutParams(dp(40), dp(5)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                setMargins(0, 0, 0, dp(14))
+            }
+            layoutParams = lp
+        }
+        container.addView(handle)
+
+        val tvHeaderTitle = TextView(this).apply {
+            text = "📷 Detalle Fotografía Lunar — $city"
+            textSize = 17f
+            setTextColor(Color.parseColor("#2B6CB0"))
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val tvHeaderSub = TextView(this).apply {
+            text = formatDay.replaceFirstChar { it.uppercase() }
+            textSize = 13f
+            setTextColor(Color.parseColor("#718096"))
+            setPadding(0, dp(2), 0, dp(12))
+        }
+        container.addView(tvHeaderTitle)
+        container.addView(tvHeaderSub)
+
+        val phaseCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#F0FFF4"))
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), Color.parseColor("#A3E635"))
+            }
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 0, 0, dp(10))
+            }
+            layoutParams = lp
+        }
+        val tvPhaseEmoji = TextView(this).apply {
+            text = moon.phaseEmoji
+            textSize = 32f
+            setPadding(0, 0, dp(12), 0)
+        }
+        val tvPhaseText = TextView(this).apply {
+            text = "${moon.phaseName} — ${moon.illumination}% Iluminada"
+            textSize = 15f
+            setTextColor(Color.parseColor("#276749"))
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        phaseCard.addView(tvPhaseEmoji)
+        phaseCard.addView(tvPhaseText)
+        container.addView(phaseCard)
+
+        fun addDetailRow(icon: String, title: String, value: String) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(6), 0, dp(6))
+            }
+            val tvTitle = TextView(this).apply {
+                text = "$icon $title"
+                textSize = 13.5f
+                setTextColor(Color.parseColor("#1A202C"))
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            val tvVal = TextView(this).apply {
+                text = value
+                textSize = 13f
+                setTextColor(Color.parseColor("#4A5568"))
+                setPadding(dp(22), dp(2), 0, 0)
+            }
+            row.addView(tvTitle)
+            row.addView(tvVal)
+            container.addView(row)
+        }
+
+        addDetailRow("🌅", "Salida de la Luna (Moonrise)", riseDetailsStr)
+        addDetailRow("🌇", "Puesta de la Luna (Moonset)", setDetailsStr)
+
+        val tvTwilightHeader = TextView(this).apply {
+            text = "✨ Ventanas Óptimas de Luz Ambiente (Crepúsculos)"
+            textSize = 14f
+            setTextColor(Color.parseColor("#2B6CB0"))
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(10), 0, dp(4))
+        }
+        container.addView(tvTwilightHeader)
+
+        addDetailRow("🌆", "Atardecer — Crepúsculo Civil / Náutico", "${fmtMins(civilDuskMins)} (Civil)  •  ${fmtMins(nauticalDuskMins)} (Náutico)")
+        addDetailRow("🌄", "Amanecer — Crepúsculo Civil / Náutico", "${fmtMins(civilDawnMins)} (Civil)  •  ${fmtMins(nauticalDawnMins)} (Náutico)")
+
+        dialog.setContentView(container)
+        dialog.window?.let { w ->
+            w.setLayout(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            w.setGravity(Gravity.BOTTOM)
+            w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        dialog.show()
+    }
+
+    private fun azimuthToCardinal(az: Int): String {
+        val directions = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO")
+        val index = (Math.round((az % 360) / 22.5)).toInt() % 16
+        val cleanIdx = if (index < 0) index + 16 else index
+        return "$az° ${directions[cleanIdx]}"
+    }
+
     private fun scrollToDayHeader(targetDayLabel: String) {
         for (i in 0 until contentLayout.childCount) {
             val child = contentLayout.getChildAt(i)
@@ -1410,29 +1405,7 @@ class MainActivity : ComponentActivity() {
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor(cardBgColor))
-                cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), Color.parseColor(cardStrokeColor))
-            }
-            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, dp(10), 0, dp(8))
-            }
-            layoutParams = lp
         }
-
-        val tvHeader = TextView(this).apply {
-            text = "⚠️ Avisos AEMET (Fenómenos Adversos)"
-            textSize = 15.5f
-            setTextColor(Color.parseColor("#1A202C"))
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, dp(6))
-        }
-        container.addView(tvHeader)
 
         if (!hasWarnings) {
             val tvSub = TextView(this).apply {
@@ -1480,58 +1453,609 @@ class MainActivity : ComponentActivity() {
         return container
     }
 
-    private fun showWeatherProviderDialog() {
-        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-        val currentProvider = prefs.getString("preferred_provider", "auto") ?: "auto"
+    private data class OutdoorRating(
+        val label: String,
+        val color: String,
+        val bg: String,
+        val border: String
+    )
 
-        val providers = arrayOf(
-            "📡 Automático / Inteligente (AEMET + Respaldo Open-Meteo)",
-            "🌤️ Open-Meteo Exclusivo (Sin clave AEMET)",
-            "🏛️ AEMET Exclusivo (Oficial)"
-        )
-        val checkedIndex = when (currentProvider) {
-            "open_meteo" -> 1
-            "aemet" -> 2
+    private fun parseTempInt(tempStr: String): Int {
+        val digits = tempStr.replace("°C", "").replace("°", "").trim()
+        return digits.toIntOrNull() ?: 20
+    }
+
+    private fun parseWindInt(windStr: String): Int {
+        val match = Regex("""(\d+)""").find(windStr)
+        return match?.groupValues?.get(1)?.toIntOrNull() ?: 10
+    }
+
+    private fun parseRainDouble(rainStr: String): Double {
+        val clean = rainStr.replace("mm", "").replace("l/m²", "").replace("l", "").trim()
+        return clean.toDoubleOrNull() ?: 0.0
+    }
+
+    private fun calculateOutdoorItemScore(item: TimelineItem): Double {
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+
+        val optMinT = prefs.getInt("outdoor_temp_opt_min", 10)
+        val optMaxT = prefs.getInt("outdoor_temp_opt_max", 24)
+        val redMinT = prefs.getInt("outdoor_temp_red_min", 4)
+        val redMaxT = prefs.getInt("outdoor_temp_red_max", 31)
+
+        val rainOptMax = prefs.getFloat("outdoor_rain_opt_max", 0.0f).toDouble()
+        val rainRedMax = prefs.getFloat("outdoor_rain_red_max", 1.5f).toDouble()
+
+        val windOptMax = prefs.getInt("outdoor_wind_opt_max", 25)
+        val windRedMax = prefs.getInt("outdoor_wind_red_max", 40)
+
+        val uvOptMax = prefs.getInt("outdoor_uv_opt_max", 5)
+        val uvRedMax = prefs.getInt("outdoor_uv_red_max", 8)
+
+        val t = parseTempInt(item.temp)
+        val w = parseWindInt(item.wind)
+        val r = parseRainDouble(item.rainLiters)
+        val uv = item.uv
+
+        val tempLevel = when {
+            t in optMinT..optMaxT -> 2
+            t in redMinT..<optMinT || t in (optMaxT + 1)..redMaxT -> 1
             else -> 0
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("🌐 Seleccionar Proveedor Meteorológico")
-            .setSingleChoiceItems(providers, checkedIndex) { dialog, which ->
-                val newProvider = when (which) {
-                    1 -> "open_meteo"
-                    2 -> "aemet"
-                    else -> "auto"
-                }
-                prefs.edit().putString("preferred_provider", newProvider).apply()
-                dialog.dismiss()
-                android.widget.Toast.makeText(this, "Proveedor actualizado. Actualizando...", android.widget.Toast.LENGTH_SHORT).show()
-                checkCacheAndLoadData(forceRefresh = true)
+        val rainLevel = when {
+            r <= rainOptMax -> 2
+            r <= rainRedMax -> 1
+            else -> 0
+        }
+
+        val windLevel = when {
+            w <= windOptMax -> 2
+            w <= windRedMax -> 1
+            else -> 0
+        }
+
+        val uvLevel = when {
+            uv <= uvOptMax -> 2
+            uv < uvRedMax -> 1
+            else -> 0
+        }
+
+        val levels = listOf(tempLevel, rainLevel, windLevel, uvLevel)
+
+        return when {
+            levels.contains(0) -> {
+                val redCount = levels.count { it == 0 }
+                (35.0 - (redCount - 1) * 10.0).coerceAtLeast(10.0)
             }
-            .setNegativeButton("Cerrar", null)
-            .show()
+            levels.contains(1) -> {
+                val yellowCount = levels.count { it == 1 }
+                (55.0 - (yellowCount - 1) * 5.0).coerceAtLeast(40.0)
+            }
+            else -> 95.0
+        }
+    }
+
+    private fun createOutdoorSportsCard(list: List<TimelineItem>): View {
+        val paddingPx = dp(14)
+
+        val validItems = list.filter { !it.isAstroEvent }
+        if (validItems.isEmpty()) {
+            return View(this)
+        }
+
+        val dayGroupsMap = mutableMapOf<String, MutableList<TimelineItem>>()
+        for (item in validItems) {
+            val groupKey = item.dayLabel.ifEmpty { "Previsión" }
+            dayGroupsMap.getOrPut(groupKey) { mutableListOf() }.add(item)
+        }
+
+        val fourDaysList = dayGroupsMap.entries.take(4)
+
+        val firstDayItems = fourDaysList.firstOrNull()?.value ?: emptyList()
+        val firstDayTimeItems = firstDayItems.filter { item ->
+            val h = item.hour.split(":").firstOrNull()?.toIntOrNull() ?: 12
+            h in 7..21
+        }.ifEmpty { firstDayItems }
+
+        val firstScores = firstDayTimeItems.map { calculateOutdoorItemScore(it) }
+        val overallScore = if (firstScores.isNotEmpty()) firstScores.average().toInt() else 75
+
+        val overallRating = when {
+            overallScore >= 80 -> OutdoorRating("Excelente 🟢", "#2E7D32", "#E8F5E9", "#A5D6A7")
+            overallScore >= 40 -> OutdoorRating("Moderado 🟡", "#F57F17", "#FFFDE7", "#FFF59D")
+            else -> OutdoorRating("Poco Favorable 🔴", "#C62828", "#FFEBEE", "#EF9A9A")
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        for ((dayName, items) in fourDaysList) {
+            val daytime = items.filter { item ->
+                val hourInt = item.hour.split(":").firstOrNull()?.toIntOrNull() ?: 12
+                hourInt in 7..21
+            }.ifEmpty { items }
+
+            val totalCount = daytime.size
+            var redHours = 0
+            var yellowHours = 0
+            var greenHours = 0
+
+            for (item in daytime) {
+                val itemScore = calculateOutdoorItemScore(item)
+                when {
+                    itemScore >= 80.0 -> greenHours++
+                    itemScore >= 40.0 -> yellowHours++
+                    else -> redHours++
+                }
+            }
+
+            val dayRating = when {
+                redHours >= 3 -> OutdoorRating("Poco Favorable 🔴", "#C62828", "#FFEBEE", "#EF9A9A")
+                yellowHours >= 3 -> OutdoorRating("Moderado 🟡", "#F57F17", "#FFFDE7", "#FFF59D")
+                greenHours == totalCount && totalCount > 0 -> OutdoorRating("Excelente 🟢", "#2E7D32", "#E8F5E9", "#A5D6A7")
+                redHours > 0 || yellowHours > 0 -> OutdoorRating("Moderado 🟡", "#F57F17", "#FFFDE7", "#FFF59D")
+                else -> OutdoorRating("Excelente 🟢", "#2E7D32", "#E8F5E9", "#A5D6A7")
+            }
+
+            val dayAvgScore = if (daytime.isNotEmpty()) daytime.map { calculateOutdoorItemScore(it) }.average().toInt() else 75
+
+            val dayRowLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(4), 0, dp(4))
+            }
+
+            val tvDayLabel = TextView(this).apply {
+                text = "• $dayName"
+                textSize = 14f
+                setTextColor(Color.parseColor("#2D3748"))
+                typeface = Typeface.DEFAULT_BOLD
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+
+            val tvDayBadge = TextView(this).apply {
+                text = "$dayAvgScore% • ${dayRating.label}"
+                textSize = 13f
+                setTextColor(Color.parseColor(dayRating.color))
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    setColor(Color.WHITE)
+                    cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), Color.parseColor(dayRating.border))
+                }
+                setPadding(dp(10), dp(5), dp(10), dp(5))
+            }
+
+            dayRowLayout.addView(tvDayLabel)
+            dayRowLayout.addView(tvDayBadge)
+            container.addView(dayRowLayout)
+        }
+
+        val tips = mutableListOf<String>()
+        val maxUv = firstDayTimeItems.maxOfOrNull { it.uv } ?: 0
+        val maxWind = firstDayTimeItems.maxOfOrNull { parseWindInt(it.wind) } ?: 0
+        val totalRain = firstDayTimeItems.sumOf { parseRainDouble(it.rainLiters) }
+        val minTemp = firstDayTimeItems.minOfOrNull { parseTempInt(it.temp) } ?: 20
+        val maxTemp = firstDayTimeItems.maxOfOrNull { parseTempInt(it.temp) } ?: 20
+
+        if (maxUv >= 6) tips.add("🧴 Protección solar (UV $maxUv)")
+        if (maxWind >= 25) tips.add("💨 Cortavientos ($maxWind km/h)")
+        if (totalRain > 0) tips.add("🌧️ Ropa impermeable")
+        if (minTemp < 12) tips.add("🧥 Ropa térmica / capas")
+        if (maxTemp > 28) tips.add("💧 Hidratación alta")
+
+        if (tips.isNotEmpty()) {
+            val tvTips = TextView(this).apply {
+                text = "💡 Consejos: ${tips.joinToString(" • ")}"
+                textSize = 12.5f
+                setTextColor(Color.parseColor("#4A5568"))
+                setPadding(0, dp(8), 0, dp(2))
+            }
+            container.addView(tvTips)
+        }
+
+        return container
     }
 
     private fun showMasterSettingsDialog() {
         val options = arrayOf(
-            "🔑 Configurar Clave API AEMET",
             "🔔 Configurar Avisos y Notificaciones",
-            "🌐 Seleccionar Proveedor Meteorológico",
+            "🏃 Configuración Deportes al Aire Libre",
             "📖 Manual y Guía de Uso (Ayuda)"
         )
         AlertDialog.Builder(this)
             .setTitle("⚙️ Panel de Configuración")
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> showAemetKeyDialog()
-                    1 -> WeatherNotificationHelper.showNotificationSettingsDialog(this@MainActivity) {
+                    0 -> WeatherNotificationHelper.showNotificationSettingsDialog(this@MainActivity) {
                         checkAndRequestNotificationPermission()
                     }
-                    2 -> showWeatherProviderDialog()
-                    3 -> showHelpManualDialog()
+                    1 -> showOutdoorSportsSettingsDialog()
+                    2 -> showHelpManualDialog()
                 }
             }
             .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun openWebVersion() {
+        try {
+            val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+            val publicUrl = prefs.getString("cfg_public_url", null) ?: "https://minimalweatherwidget.netlify.app/"
+            val webView = android.webkit.WebView(this).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.allowFileAccess = true
+                webChromeClient = android.webkit.WebChromeClient()
+                webViewClient = android.webkit.WebViewClient()
+                loadUrl(publicUrl)
+            }
+
+            val topBar = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(Color.parseColor("#2B6CB0"))
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            val titleTv = TextView(this).apply {
+                text = "🌐 Web"
+                setTextColor(Color.WHITE)
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+
+            val btnShare = TextView(this).apply {
+                text = "🔗 Compartir"
+                setTextColor(Color.WHITE)
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(dp(6), dp(2), dp(6), dp(2))
+            }
+
+            val btnClose = TextView(this).apply {
+                text = "❌ Cerrar"
+                setTextColor(Color.WHITE)
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(dp(6), dp(2), dp(6), dp(2))
+            }
+
+            topBar.addView(titleTv)
+            topBar.addView(btnShare)
+            topBar.addView(btnClose)
+
+            val container = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(topBar)
+                addView(webView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
+            }
+
+            val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            dialog.setContentView(container)
+
+            btnShare.setOnClickListener {
+                val currentUrl = prefs.getString("cfg_public_url", null) ?: publicUrl
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Minimal Weather Widget Web")
+                    putExtra(Intent.EXTRA_TEXT, "Consulta el tiempo en directo en nuestra versión web: $currentUrl")
+                }
+                startActivity(Intent.createChooser(shareIntent, "Compartir Versión Web"))
+            }
+
+            btnClose.setOnClickListener {
+                dialog.dismiss()
+            }
+
+            dialog.show()
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "Error al abrir la versión web", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showTempTypeDialog() {
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+        val currentUseApparent = prefs.getBoolean("use_apparent_temp", false)
+
+        val options = arrayOf(
+            "🌡️ Temperatura Real (Máx / Mín)" + if (!currentUseApparent) "  ✓" else "",
+            "🌡️ Sensación Térmica (Máx / Mín)" + if (currentUseApparent) "  ✓" else ""
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("🌡️ Tipo de Temperatura en Widget")
+            .setItems(options) { _, which ->
+                val useApparent = (which == 1)
+                prefs.edit().putBoolean("use_apparent_temp", useApparent).commit()
+                val modeName = if (useApparent) "Sensación Térmica" else "Temperatura Real"
+                android.widget.Toast.makeText(this, "Widget actualizado: $modeName", android.widget.Toast.LENGTH_SHORT).show()
+                WeatherWidgetProvider.requestRefresh(this)
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun showWidgetConfigDialog() {
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+
+        val showMoon = prefs.getBoolean("show_widget_moon", true)
+        val showWind = prefs.getBoolean("show_widget_wind", true)
+        val showRain = prefs.getBoolean("show_widget_rain", true)
+        val showUv = prefs.getBoolean("show_widget_uv", true)
+        val showSunlight = prefs.getBoolean("show_widget_sunlight", true)
+
+        val scrollView = android.widget.ScrollView(this)
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+        }
+        scrollView.addView(layout)
+
+        fun createSectionTitle(title: String) {
+            val tv = TextView(this@MainActivity).apply {
+                text = title
+                textSize = 14.5f
+                setTextColor(Color.parseColor("#2B6CB0"))
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, dp(6), 0, dp(4))
+            }
+            layout.addView(tv)
+        }
+
+        createSectionTitle("👁️ Elementos Visibles en el Widget")
+
+        fun createSwitchRow(label: String, initialChecked: Boolean): android.widget.CheckBox {
+            val cb = android.widget.CheckBox(this@MainActivity).apply {
+                text = label
+                isChecked = initialChecked
+                textSize = 13.5f
+                setPadding(dp(4), dp(4), 0, dp(4))
+            }
+            layout.addView(cb)
+            return cb
+        }
+
+        val cbMoon = createSwitchRow("📷 Cámara lunar (Noches óptimas)", showMoon)
+        val cbWind = createSwitchRow("💨 Viento (Velocidad y racha)", showWind)
+        val cbRain = createSwitchRow("💧 Lluvia (Previsión precipitación)", showRain)
+        val cbUv = createSwitchRow("UV Índice UV (Franja UV ≥ 3)", showUv)
+        val cbSunlight = createSwitchRow("🏃 Horas deporte (verde)", showSunlight)
+
+        AlertDialog.Builder(this)
+            .setTitle("⚙️ Ajustes del Widget")
+            .setView(scrollView)
+            .setPositiveButton("Guardar") { _, _ ->
+                val newMoon = cbMoon.isChecked
+                val newWind = cbWind.isChecked
+                val newRain = cbRain.isChecked
+                val newUv = cbUv.isChecked
+                val newSunlight = cbSunlight.isChecked
+
+                prefs.edit()
+                    .putBoolean("show_widget_moon", newMoon)
+                    .putBoolean("show_widget_wind", newWind)
+                    .putBoolean("show_widget_rain", newRain)
+                    .putBoolean("show_widget_uv", newUv)
+                    .putBoolean("show_widget_sunlight", newSunlight)
+                    .commit()
+
+                android.widget.Toast.makeText(this, "Ajustes del widget guardados", android.widget.Toast.LENGTH_SHORT).show()
+                WeatherWidgetProvider.requestRefresh(this)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun showOutdoorSportsSettingsDialog() {
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+
+        val currentOptMinT = prefs.getInt("outdoor_temp_opt_min", 10)
+        val currentOptMaxT = prefs.getInt("outdoor_temp_opt_max", 24)
+        val currentRedMinT = prefs.getInt("outdoor_temp_red_min", 4)
+        val currentRedMaxT = prefs.getInt("outdoor_temp_red_max", 31)
+
+        val currentRainOptMax = prefs.getFloat("outdoor_rain_opt_max", 0.0f)
+        val currentRainRedMax = prefs.getFloat("outdoor_rain_red_max", 1.5f)
+
+        val currentWindOptMax = prefs.getInt("outdoor_wind_opt_max", 25)
+        val currentWindRedMax = prefs.getInt("outdoor_wind_red_max", 40)
+
+        val currentUvOptMax = prefs.getInt("outdoor_uv_opt_max", 5)
+        val currentUvRedMax = prefs.getInt("outdoor_uv_red_max", 7)
+
+        val scrollView = android.widget.ScrollView(this)
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+        }
+        scrollView.addView(layout)
+
+        fun createSectionTitle(title: String) {
+            val tv = TextView(this@MainActivity).apply {
+                text = title
+                textSize = 15f
+                setTextColor(Color.parseColor("#2B6CB0"))
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, dp(12), 0, dp(4))
+            }
+            layout.addView(tv)
+        }
+
+        fun createSingleColorRow(iconEmoji: String, labelText: String, initialVal: String): EditText {
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(3), 0, dp(3))
+            }
+
+            val tvIcon = TextView(this@MainActivity).apply {
+                text = iconEmoji
+                textSize = 15f
+                setPadding(0, 0, dp(6), 0)
+            }
+
+            val tvLabel = TextView(this@MainActivity).apply {
+                text = labelText
+                textSize = 13.5f
+                setTextColor(Color.parseColor("#2D3748"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+
+            val et = EditText(this@MainActivity).apply {
+                setText(initialVal)
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                textSize = 13.5f
+                gravity = Gravity.CENTER
+                minWidth = dp(55)
+            }
+
+            row.addView(tvIcon)
+            row.addView(tvLabel)
+            row.addView(et)
+            layout.addView(row)
+            return et
+        }
+
+        fun createInfoRow(iconEmoji: String, infoText: String) {
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(3), 0, dp(3))
+            }
+
+            val tvIcon = TextView(this@MainActivity).apply {
+                text = iconEmoji
+                textSize = 15f
+                setPadding(0, 0, dp(6), 0)
+            }
+
+            val tvLabel = TextView(this@MainActivity).apply {
+                text = infoText
+                textSize = 13f
+                setTextColor(Color.parseColor("#C62828"))
+            }
+
+            row.addView(tvIcon)
+            row.addView(tvLabel)
+            layout.addView(row)
+        }
+
+        fun createRangeColorRow(iconEmoji: String, labelText: String, initialMin: String, initialMax: String): Pair<EditText, EditText> {
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(3), 0, dp(3))
+            }
+
+            val tvIcon = TextView(this@MainActivity).apply {
+                text = iconEmoji
+                textSize = 15f
+                setPadding(0, 0, dp(6), 0)
+            }
+
+            val tvLabel = TextView(this@MainActivity).apply {
+                text = labelText
+                textSize = 13f
+                setTextColor(Color.parseColor("#2D3748"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+
+            val etMin = EditText(this@MainActivity).apply {
+                setText(initialMin)
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                textSize = 13f
+                gravity = Gravity.CENTER
+                minWidth = dp(45)
+            }
+
+            val tvTo = TextView(this@MainActivity).apply {
+                text = "a"
+                textSize = 13f
+                setTextColor(Color.parseColor("#718096"))
+                setPadding(dp(4), 0, dp(4), 0)
+            }
+
+            val etMax = EditText(this@MainActivity).apply {
+                setText(initialMax)
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                textSize = 13f
+                gravity = Gravity.CENTER
+                minWidth = dp(45)
+            }
+
+            row.addView(tvIcon)
+            row.addView(tvLabel)
+            row.addView(etMin)
+            row.addView(tvTo)
+            row.addView(etMax)
+            layout.addView(row)
+            return Pair(etMin, etMax)
+        }
+
+        // Section 1: Temperature
+        createSectionTitle("🌡️ Sensación Térmica / Temperatura (°C)")
+        val (etOptMinT, etOptMaxT) = createRangeColorRow("🟢", "Excelente (Rango °C):", currentOptMinT.toString(), currentOptMaxT.toString())
+        val (etRedMinT, etRedMaxT) = createRangeColorRow("🟠", "Moderado (Rango °C):", currentRedMinT.toString(), currentRedMaxT.toString())
+        createInfoRow("🔴", "Poco Favorable (< Moderado Mín o > Moderado Máx)")
+
+        // Section 2: Wind
+        createSectionTitle("💨 Viento (km/h)")
+        val etWindOptMax = createSingleColorRow("🟢", "Excelente (Hasta km/h):", currentWindOptMax.toString())
+        val etWindRedMax = createSingleColorRow("🟠", "Moderado (Hasta km/h):", currentWindRedMax.toString())
+        createInfoRow("🔴", "Poco Favorable (> Moderado)")
+
+        // Section 3: UV
+        createSectionTitle("☀️ Índice Radiación UV")
+        val etUvOptMax = createSingleColorRow("🟢", "Excelente (Hasta):", currentUvOptMax.toString())
+        val etUvRedMax = createSingleColorRow("🟠", "Moderado (Hasta):", currentUvRedMax.toString())
+        createInfoRow("🔴", "Poco Favorable (> Moderado)")
+
+        // Section 4: Rain
+        createSectionTitle("🌧️ Lluvia / Precipitación (mm/h)")
+        val etRainOptMax = createSingleColorRow("🟢", "Excelente (Hasta mm/h):", currentRainOptMax.toString())
+        val etRainRedMax = createSingleColorRow("🟠", "Moderado (Hasta mm/h):", currentRainRedMax.toString())
+        createInfoRow("🔴", "Poco Favorable (> Moderado)")
+
+        AlertDialog.Builder(this)
+            .setTitle("🏃 Matriz Deportes al Aire Libre")
+            .setView(scrollView)
+            .setPositiveButton("Guardar") { _, _ ->
+                val newOptMinT = etOptMinT.text.toString().toIntOrNull() ?: 10
+                val newOptMaxT = etOptMaxT.text.toString().toIntOrNull() ?: 24
+                val newRedMinT = etRedMinT.text.toString().toIntOrNull() ?: 4
+                val newRedMaxT = etRedMaxT.text.toString().toIntOrNull() ?: 31
+
+                val newRainOptMax = etRainOptMax.text.toString().toFloatOrNull() ?: 0.0f
+                val newRainRedMax = etRainRedMax.text.toString().toFloatOrNull() ?: 1.5f
+
+                val newWindOptMax = etWindOptMax.text.toString().toIntOrNull() ?: 25
+                val newWindRedMax = etWindRedMax.text.toString().toIntOrNull() ?: 40
+
+                val newUvOptMax = etUvOptMax.text.toString().toIntOrNull() ?: 5
+                val newUvRedMax = etUvRedMax.text.toString().toIntOrNull() ?: 7
+
+                prefs.edit()
+                    .putInt("outdoor_temp_opt_min", newOptMinT)
+                    .putInt("outdoor_temp_opt_max", newOptMaxT)
+                    .putInt("outdoor_temp_red_min", newRedMinT)
+                    .putInt("outdoor_temp_red_max", newRedMaxT)
+                    .putFloat("outdoor_rain_opt_max", newRainOptMax)
+                    .putFloat("outdoor_rain_red_max", newRainRedMax)
+                    .putInt("outdoor_wind_opt_max", newWindOptMax)
+                    .putInt("outdoor_wind_red_max", newWindRedMax)
+                    .putInt("outdoor_uv_opt_max", newUvOptMax)
+                    .putInt("outdoor_uv_red_max", newUvRedMax)
+                    .apply()
+
+                android.widget.Toast.makeText(this, "Matriz de configuración guardada", android.widget.Toast.LENGTH_SHORT).show()
+                checkCacheAndLoadData(forceRefresh = true)
+                WeatherWidgetProvider.requestRefresh(this)
+            }
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
@@ -1772,28 +2296,171 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
+    private fun normalizeCity(input: String): String {
+        return java.text.Normalizer.normalize(input.lowercase().trim(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+    }
+
+    private fun findProvinceDataForCity(city: String): ProvinceData? {
+        val cleanCity = normalizeCity(city)
+        for (comm in spainReservoirsData) {
+            for (prov in comm.provinces) {
+                val cleanProv = normalizeCity(prov.provinceName)
+                if (cleanCity.contains(cleanProv) || cleanProv.contains(cleanCity)) {
+                    return prov
+                }
+            }
+        }
+        if (cleanCity.contains("medina") || cleanCity.contains("sidonia") || cleanCity.contains("cadiz") ||
+            cleanCity.contains("jerez") || cleanCity.contains("chiclana") || cleanCity.contains("san fernando") ||
+            cleanCity.contains("tarifa") || cleanCity.contains("algeciras") || cleanCity.contains("puerto") ||
+            cleanCity.contains("rota") || cleanCity.contains("sanlucar") || cleanCity.contains("ubrique") || cleanCity.contains("conil")) {
+            return spainReservoirsData.firstOrNull()?.provinces?.firstOrNull { it.provinceName == "Cádiz" }
+        }
+        return spainReservoirsData.firstOrNull()?.provinces?.firstOrNull { it.provinceName == "Cádiz" }
+    }
+
+    private fun createProvinceReservoirsCard(city: String): View {
+        val provData = findProvinceDataForCity(city) ?: return View(this)
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        for (res in provData.reservoirs) {
+            val itemLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(4), 0, dp(6))
+            }
+
+            val tvResTitle = TextView(this).apply {
+                text = "• ${res.name}: ${res.storedHm3} hm³ (${res.percentage}%)"
+                textSize = 13.5f
+                setTextColor(Color.parseColor("#2D3748"))
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
+            val tvResStatus = TextView(this).apply {
+                text = "${res.status} (Capacidad: ${res.capacityHm3} hm³)"
+                textSize = 12.5f
+                setTextColor(Color.parseColor("#4A5568"))
+                setPadding(dp(10), 0, 0, dp(4))
+            }
+
+            val barBackground = GradientDrawable().apply {
+                setColor(Color.parseColor("#CBD5E0"))
+                cornerRadius = dp(4).toFloat()
+            }
+            val barContainer = FrameLayout(this).apply {
+                background = barBackground
+                val lpBar = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(8)
+                ).apply {
+                    setMargins(dp(10), 0, 0, 0)
+                }
+                layoutParams = lpBar
+            }
+
+            val progressWidthPx = maxOf(dp(4), (dp(240) * (res.percentage / 100.0)).toInt())
+            val barProgress = View(this).apply {
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#3182CE"))
+                    cornerRadius = dp(4).toFloat()
+                }
+                layoutParams = FrameLayout.LayoutParams(
+                    progressWidthPx,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            barContainer.addView(barProgress)
+
+            itemLayout.addView(tvResTitle)
+            itemLayout.addView(tvResStatus)
+            itemLayout.addView(barContainer)
+            container.addView(itemLayout)
+        }
+
+        container.setOnClickListener {
+            showReservoirsCommunitiesDialog()
+        }
+
+        return container
+    }
+
+    private fun makeCardCollapsible(
+        prefKey: String,
+        headerTitle: String,
+        contentView: View,
+        bgColorHex: String = "#FFFFFF",
+        strokeColorHex: String = "#E2E8F0"
+    ): View {
+        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+        var isOpen = prefs.getBoolean(prefKey, false) // Closed by default
+
+        val cardContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor(bgColorHex))
+                cornerRadius = dp(14).toFloat()
+                if (strokeColorHex.isNotEmpty()) {
+                    setStroke(dp(1), Color.parseColor(strokeColorHex))
+                }
+            }
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, dp(6), 0, dp(6))
+            }
+            layoutParams = lp
+        }
+
+        val headerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, if (isOpen) dp(8) else 0)
+        }
+
+        val tvTitle = TextView(this).apply {
+            text = headerTitle
+            textSize = 15.5f
+            setTextColor(Color.parseColor("#1A202C"))
+            typeface = Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+
+        val tvArrow = TextView(this).apply {
+            text = if (isOpen) "▼" else "▶"
+            textSize = 14f
+            setTextColor(Color.parseColor("#2B6CB0"))
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        headerLayout.addView(tvTitle)
+        headerLayout.addView(tvArrow)
+        cardContainer.addView(headerLayout)
+
+        contentView.visibility = if (isOpen) View.VISIBLE else View.GONE
+        cardContainer.addView(contentView)
+
+        headerLayout.setOnClickListener {
+            isOpen = !isOpen
+            prefs.edit().putBoolean(prefKey, isOpen).apply()
+            contentView.visibility = if (isOpen) View.VISIBLE else View.GONE
+            tvArrow.text = if (isOpen) "▼" else "▶"
+            headerLayout.setPadding(0, 0, 0, if (isOpen) dp(8) else 0)
+        }
+
+        return cardContainer
+    }
+
     private fun renderTimeline(city: String, list: List<TimelineItem>, sourceUsed: String, dailySummaries: List<DailySummary> = emptyList()) {
         contentLayout.removeAllViews()
 
         stickyTitle.text = city
         updateStarUI()
-
-        val isAemetUsed = sourceUsed.contains("AEMET", ignoreCase = true) && !sourceUsed.contains("Open-Meteo (Meteo", ignoreCase = true)
-
-        if (isAemetUsed) {
-            sourceAemetView.text = "• AEMET: Tiempo, temperatura, viento y lluvia"
-            sourceAemetView.setTextColor(Color.parseColor("#2B6CB0"))
-            sourceBackupView.text = "• Open-Meteo (Respaldo): Índice UV, Sol y Mareas"
-            sourceBackupView.setTextColor(Color.parseColor("#718096"))
-        } else {
-            sourceAemetView.text = "• AEMET: No disponible (usando respaldo)"
-            sourceAemetView.setTextColor(Color.parseColor("#E53E3E"))
-            sourceBackupView.text = "• Open-Meteo (Respaldo): Tiempo, temp., viento, lluvia, UV, Sol y Mareas"
-            sourceBackupView.setTextColor(Color.parseColor("#2B6CB0"))
-        }
-
-        contentLayout.addView(sourceAemetView)
-        contentLayout.addView(sourceBackupView)
 
         // Tarjeta de Avisos AEMET (Fenómenos Adversos)
         val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
@@ -1803,49 +2470,25 @@ class MainActivity : ComponentActivity() {
 
         val aemetWarnings = WeatherNotificationHelper.fetchAemetMultiDayWarnings(this, code, lat, lon, dailySummaries)
 
-        // Resumen 7 Días en la parte superior
-        if (dailySummaries.isNotEmpty()) {
-            val tvSummaryTitle = TextView(this).apply {
-                text = "📅 Previsión 7 Días"
-                textSize = 15f
-                setTextColor(Color.parseColor("#2B6CB0"))
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(dp(4), dp(10), dp(4), dp(4))
-            }
-            contentLayout.addView(tvSummaryTitle)
+        val innerWarnings = createAemetWarningsCard(aemetWarnings)
+        val hasWarnings = aemetWarnings.isNotEmpty()
+        val warningsCard = makeCardCollapsible(
+            "card_open_warnings", "⚠️ Avisos AEMET", innerWarnings,
+            if (hasWarnings) "#FFF5F5" else "#F0FFF4",
+            if (hasWarnings) "#FEB2B2" else "#C6F6D5"
+        )
+        contentLayout.addView(warningsCard)
 
-            val summaryScroll = HorizontalScrollView(this).apply {
-                isHorizontalScrollBarEnabled = false
-                setPadding(0, dp(2), 0, dp(10))
-            }
-            val summaryRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-
-            for (day in dailySummaries) {
-                val dayWarning = aemetWarnings.firstOrNull { w ->
-                    w.levelColor != "VERDE" && (
-                        (w.date != null && w.date == day.date) ||
-                        (w.date == null && (
-                            (day.fullDayLabel.startsWith("Hoy") && w.dayLabel.startsWith("Hoy")) ||
-                            (day.fullDayLabel.startsWith("Mañana") && w.dayLabel.startsWith("Mañana")) ||
-                            w.dayLabel.contains("(${day.date.dayOfMonth}/${day.date.monthValue})")
-                        ))
-                    )
-                }
-                val card = createSevenDayCard(day, dayWarning?.levelColor)
-                card.setOnClickListener {
-                    scrollToDayHeader(day.fullDayLabel)
-                }
-                summaryRow.addView(card)
-            }
-            summaryScroll.addView(summaryRow)
-            contentLayout.addView(summaryScroll)
+        if (list.isNotEmpty()) {
+            val provData = findProvinceDataForCity(city)
+            val provName = provData?.provinceName ?: "Cádiz"
+            val innerReservoirs = createProvinceReservoirsCard(city)
+            val reservoirsCard = makeCardCollapsible(
+                "card_open_reservoirs", "💧 Embalses ($provName)", innerReservoirs,
+                "#EBF8FF", "#BEE3F8"
+            )
+            contentLayout.addView(reservoirsCard)
         }
-
-        val aemetWarningsCard = createAemetWarningsCard(aemetWarnings)
-        contentLayout.addView(aemetWarningsCard)
 
         dayHeadersInfo.clear()
 
@@ -1943,6 +2586,18 @@ class MainActivity : ComponentActivity() {
                 row.addView(tvTime)
                 row.addView(tvDesc)
                 row.addView(tvAzimuth)
+
+                if (isMoon) {
+                    row.isClickable = true
+                    row.isFocusable = true
+                    row.setOnClickListener {
+                        val parsedDate = try {
+                            if (item.itemDate.isNotBlank()) LocalDate.parse(item.itemDate) else LocalDate.now()
+                        } catch (_: Exception) { LocalDate.now() }
+                        showLunarPhotoDetailSheet(parsedDate, city, lat, lon)
+                    }
+                }
+
                 contentLayout.addView(row)
 
             } else {
@@ -1970,14 +2625,14 @@ class MainActivity : ComponentActivity() {
                     setTextColor(Color.parseColor("#1A202C"))
                     typeface = Typeface.DEFAULT_BOLD
                     isSingleLine = true
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.3f)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.1f)
                 }
 
                 val tvIcon = TextView(this).apply {
                     text = item.icon
                     textSize = 26f
                     gravity = Gravity.CENTER
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.6f)
                 }
 
                 val tempVal = item.temp.toIntOrNull() ?: 0
@@ -1993,7 +2648,7 @@ class MainActivity : ComponentActivity() {
                     setTextColor(tempColor)
                     typeface = Typeface.DEFAULT_BOLD
                     gravity = Gravity.CENTER
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.8f)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
                 }
 
                 val windColor = if (item.wind.contains("|||")) Color.parseColor("#E53E3E") else Color.parseColor("#718096")
@@ -2002,7 +2657,7 @@ class MainActivity : ComponentActivity() {
                     textSize = 13f
                     setTextColor(windColor)
                     gravity = Gravity.CENTER
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.4f)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.2f)
                 }
 
                 // UV al lado de la lluvia: solo se muestra si es 3 o más (si no, el hueco queda vacío)
@@ -2012,7 +2667,7 @@ class MainActivity : ComponentActivity() {
                     setTextColor(Color.parseColor("#E53E3E"))
                     typeface = Typeface.DEFAULT_BOLD
                     gravity = Gravity.CENTER
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.8f)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
                 }
 
                 val tvRain = TextView(this).apply {
@@ -2024,12 +2679,41 @@ class MainActivity : ComponentActivity() {
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.8f)
                 }
 
+                val hInt = item.hour.toIntOrNull() ?: 12
+                val parsedDate = try {
+                    if (item.itemDate.isNotBlank()) java.time.LocalDate.parse(item.itemDate) else java.time.LocalDate.now()
+                } catch (_: Exception) {
+                    java.time.LocalDate.now()
+                }
+                val sunData = MainActivityHelper.calculateSunTimesStatic(parsedDate, lat, lon)
+                val isDaylight = hInt in sunData.sunriseHour..sunData.sunsetHour
+
+                val outdoorBadgeStr = if (isDaylight) {
+                    val itemOutdoorScore = calculateOutdoorItemScore(item)
+                    when {
+                        itemOutdoorScore >= 80.0 -> "🏃🟢"
+                        itemOutdoorScore >= 40.0 -> "🏃🟡"
+                        else -> "🏃🔴"
+                    }
+                } else {
+                    ""
+                }
+
+                val tvOutdoor = TextView(this).apply {
+                    text = outdoorBadgeStr
+                    textSize = 13f
+                    gravity = Gravity.END
+                    isSingleLine = true
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.9f)
+                }
+
                 row.addView(tvHour)
                 row.addView(tvIcon)
                 row.addView(tvTemp)
                 row.addView(tvWind)
                 row.addView(tvUv)
                 row.addView(tvRain)
+                row.addView(tvOutdoor)
 
                 contentLayout.addView(row)
             }
@@ -2195,115 +2879,11 @@ class MainActivity : ComponentActivity() {
         return map
     }
 
-    private fun fetchAemetHourlyWithSunMoonAndTides(municipioCode: String, lat: Double, lon: Double): List<TimelineItem> {
-        val apiKey = WeatherWidgetProvider.getAemetApiKey(this)
-        if (municipioCode.isBlank() || apiKey.isBlank()) return emptyList()
-
-        return try {
-            val step1Url = "https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/$municipioCode/?api_key=${apiKey.trim()}"
-            val step1Resp = httpGet(step1Url, Charset.forName("UTF-8")) ?: return emptyList()
-            val step1Json = JSONObject(step1Resp)
-            if (step1Json.optInt("estado") != 200) return emptyList()
-
-            val datosUrl = step1Json.getString("datos")
-            val step2Resp = httpGet(datosUrl, Charset.forName("ISO-8859-15")) ?: return emptyList()
-            val rootArr = JSONArray(step2Resp)
-            val diasArr = rootArr.getJSONObject(0).getJSONObject("prediccion").getJSONArray("dia")
-
-            val result = mutableListOf<TimelineItem>()
-            val nowDate = LocalDate.now()
-            val nowHour = LocalTime.now().hour
-            val diasSemana = listOf("Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado")
-            val nearCoast = getNearestCoastPoint(lat, lon) != null
-
-            val sunMap = fetchOpenMeteoSunTimes(lat, lon)
-            val tidesMap = if (nearCoast) fetchOpenMeteoTides(lat, lon) else emptyMap()
-            val uvMap = fetchOpenMeteoHourlyUv(lat, lon)
-
-            for (d in 0 until diasArr.length()) {
-                val diaObj = diasArr.getJSONObject(d)
-                val fechaStr = diaObj.getString("fecha").substring(0, 10)
-                val date = LocalDate.parse(fechaStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                if (date < nowDate) continue
-
-                val dayLabel = when (date) {
-                    nowDate -> "Hoy"
-                    nowDate.plusDays(1) -> "Mañana (${diasSemana[date.dayOfWeek.value % 7]})"
-                    else -> "${diasSemana[date.dayOfWeek.value % 7]} ${date.dayOfMonth}"
-                }
-
-                val astroEvents = buildAstroAndTideEventsForDay(
-                    date, lat, lon, nearCoast,
-                    sunMap[date],
-                    tidesMap[date]
-                )
-
-                val tempMap = parseHourlyPeriodArray(diaObj.optJSONArray("temperatura"))
-                val skyMap = parseHourlyPeriodArray(diaObj.optJSONArray("estadoCielo"))
-                val windMap = parseHourlyWindArray(diaObj.optJSONArray("vientoAndRachaMax"))
-                val precipMap = parseHourlyPeriodArray(diaObj.optJSONArray("precipitacion"))
-
-                val dayItems = mutableListOf<TimelineItem>()
-
-                for (h in 0..23) {
-                    if (date == nowDate && h < nowHour) continue
-
-                    val hKey = String.format("%02d", h)
-                    val temp = tempMap[hKey] ?: continue
-                    val sky = skyMap[hKey] ?: ""
-                    val (dir, speed) = windMap[hKey] ?: Pair("C", 0)
-                    val rawRain = precipMap[hKey] ?: "0"
-                    val rainLiters = formatLiters(rawRain)
-                    val windStr = "${windDirToArrow(dir)} ${windSpeedToBars(speed)} $speed"
-                    val uvVal = uvMap["${date}T$hKey"] ?: 0
-
-                    dayItems.add(
-                        TimelineItem(
-                            dayLabel = dayLabel,
-                            hour = hKey,
-                            sortMinute = h * 60,
-                            timeStr = "",
-                            isAstroEvent = false,
-                            astroTitle = "", astroDetails = "", iconEmoji = "", isGoodPhoto = false,
-                            icon = aemetSkyToEmoji(sky), temp = temp, wind = windStr, rainLiters = rainLiters,
-                            uv = uvVal,
-                            itemDate = date.toString()
-                        )
-                    )
-                }
-
-                for (astro in astroEvents) {
-                    if (date == nowDate && astro.hourInt < nowHour) continue
-                    dayItems.add(
-                        TimelineItem(
-                            dayLabel = dayLabel,
-                            hour = String.format("%02d", astro.hourInt),
-                            sortMinute = astro.exactMinute,
-                            timeStr = astro.timeStr,
-                            isAstroEvent = true,
-                            astroTitle = astro.title,
-                            astroDetails = astro.details,
-                            iconEmoji = astro.iconEmoji,
-                            isGoodPhoto = astro.isGoodPhoto,
-                            icon = "", temp = "", wind = "", rainLiters = "",
-                            itemDate = date.toString()
-                        )
-                    )
-                }
-
-                result.addAll(dayItems.sortedBy { it.sortMinute })
-            }
-            result
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
     private fun fetchOpenMeteoHourlyWithSunMoonAndTides(lat: Double, lon: Double): List<TimelineItem> {
         return try {
             val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
                     "&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,uv_index" +
-                    "&daily=sunrise,sunset&timezone=Europe%2FMadrid&forecast_days=4"
+                    "&daily=sunrise,sunset&timezone=Europe%2FMadrid&forecast_days=7"
             val resp = httpGet(url, Charset.forName("UTF-8")) ?: return emptyList()
             val json = JSONObject(resp)
             val hourly = json.getJSONObject("hourly")
@@ -2484,7 +3064,7 @@ class MainActivity : ComponentActivity() {
                     exactMinute = moonInfo.riseTotalMins,
                     timeStr = moonInfo.riseTimeStr,
                     title = if (isMoonRiseGood) "Salida Luna (📷 ¡Óptima!)" else "Salida de la Luna",
-                    details = "Azimut: ${moonInfo.riseAzimuth}°",
+                    details = "Azimut: ${moonInfo.riseAzimuth}° • ${moonInfo.phaseName} (${moonInfo.illumination}%)",
                     iconEmoji = moonInfo.phaseEmoji,
                     isGoodPhoto = isMoonRiseGood
                 )
@@ -2797,7 +3377,7 @@ object MainActivityHelper {
         return (epochSec - 946728000.0) / 86400.0
     }
 
-    private fun getMoonAltAz(zdt: ZonedDateTime, lat: Double, lon: Double): Pair<Double, Double> {
+    fun getMoonAltAz(zdt: ZonedDateTime, lat: Double, lon: Double): Pair<Double, Double> {
         val d = toDaysJ2000(zdt)
         val L = Math.toRadians((218.316 + 13.176396 * d) % 360.0)
         val M = Math.toRadians((134.963 + 13.064993 * d) % 360.0)
