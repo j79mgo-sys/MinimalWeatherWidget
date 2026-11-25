@@ -2,10 +2,10 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rowRootContainer"
     android:layout_width="match_parent"
-    android:layout_height="115dp"
-    android:minHeight="115dp"
+    android:layout_height="102dp"
+    android:minHeight="102dp"
     android:orientation="horizontal"
-    android:paddingTop="2dp"
+    android:paddingTop="1dp"
     android:paddingBottom="4dp"
     android:weightSum="4">
 
@@ -14,11 +14,11 @@
         android:id="@+id/card0"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="115dp"
+        android:minHeight="102dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingTop="2dp"
+        android:paddingTop="1dp"
         android:paddingBottom="2dp">
 
         <!-- Fila Día + Cámara + Icono -->
@@ -124,7 +124,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -135,7 +135,7 @@
                     android:singleLine="true"
                     android:text="2-3"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -148,10 +148,11 @@
             android:layout_marginTop="1dp"
             android:gravity="center"
             android:includeFontPadding="false"
+            android:lineSpacingExtra="0dp"
             android:singleLine="true"
             android:text="🏃 5 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="10.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -160,11 +161,11 @@
         android:id="@+id/card1"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="115dp"
+        android:minHeight="102dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingTop="2dp"
+        android:paddingTop="1dp"
         android:paddingBottom="2dp">
 
         <LinearLayout
@@ -266,7 +267,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -277,7 +278,7 @@
                     android:singleLine="true"
                     android:text="1-3"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -289,10 +290,11 @@
             android:layout_marginTop="1dp"
             android:gravity="center"
             android:includeFontPadding="false"
+            android:lineSpacingExtra="0dp"
             android:singleLine="true"
             android:text="🏃 8 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="10.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -301,11 +303,11 @@
         android:id="@+id/card2"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="115dp"
+        android:minHeight="102dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingTop="2dp"
+        android:paddingTop="1dp"
         android:paddingBottom="2dp">
 
         <LinearLayout
@@ -407,7 +409,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -418,7 +420,7 @@
                     android:singleLine="true"
                     android:text="2"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -430,10 +432,11 @@
             android:layout_marginTop="1dp"
             android:gravity="center"
             android:includeFontPadding="false"
+            android:lineSpacingExtra="0dp"
             android:singleLine="true"
             android:text="🏃 2 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="10.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -442,11 +445,11 @@
         android:id="@+id/card3"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:minHeight="115dp"
+        android:minHeight="102dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingTop="2dp"
+        android:paddingTop="1dp"
         android:paddingBottom="2dp">
 
         <LinearLayout
@@ -548,7 +551,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -559,7 +562,7 @@
                     android:singleLine="true"
                     android:text="1-4"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -571,10 +574,11 @@
             android:layout_marginTop="1dp"
             android:gravity="center"
             android:includeFontPadding="false"
+            android:lineSpacingExtra="0dp"
             android:singleLine="true"
             android:text="🏃 6 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="10.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

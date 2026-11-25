@@ -251,7 +251,7 @@ function onSearchInputDebounced(query) {
 
   searchDebounceTimer = setTimeout(async () => {
     try {
-      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=es&format=json`;
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=es&format=json`;
       const res = await fetch(url);
       const json = await res.json();
       renderSearchResultsList(json.results || []);
@@ -312,7 +312,7 @@ function renderFavoritesListInModal() {
         <div style="cursor:pointer; flex:1;" onclick="selectTown(${townObjStr})">
           <span style="font-weight:700; color:${isCurrent ? '#2B6CB0' : '#2D3748'};">⭐ ${t.name}</span>
         </div>
-        <button style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:#E53E3E; padding:2px 6px;" onclick="event.stopPropagation(); deleteFavoriteTown('${townNameEscaped}')" title="Eliminar de favoritos">🗑️</button>
+        <button style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:#E53E3E; padding:2px 6px; font-weight:bold;" onclick="event.stopPropagation(); deleteFavoriteTown('${townNameEscaped}')" title="Eliminar de favoritos">✕</button>
       </div>
     `;
   });

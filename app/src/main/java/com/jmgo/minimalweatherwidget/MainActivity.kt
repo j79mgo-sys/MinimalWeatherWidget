@@ -590,6 +590,15 @@ class MainActivity : ComponentActivity() {
                 settings.useWideViewPort = true
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
+                settings.setGeolocationEnabled(true)
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(
+                        origin: String,
+                        callback: android.webkit.GeolocationPermissions.Callback
+                    ) {
+                        callback.invoke(origin, true, false)
+                    }
+                }
                 webViewClient = android.webkit.WebViewClient()
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1688,7 +1697,15 @@ class MainActivity : ComponentActivity() {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
-                webChromeClient = android.webkit.WebChromeClient()
+                settings.setGeolocationEnabled(true)
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(
+                        origin: String,
+                        callback: android.webkit.GeolocationPermissions.Callback
+                    ) {
+                        callback.invoke(origin, true, false)
+                    }
+                }
                 webViewClient = android.webkit.WebViewClient()
                 loadUrl(publicUrl)
             }

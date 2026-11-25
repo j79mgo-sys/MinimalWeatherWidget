@@ -72,8 +72,10 @@ body {
 .header-actions-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 8px;
   width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
 }
 
 .btn-icon {
@@ -90,6 +92,7 @@ body {
   font-weight: 600;
   color: var(--text-main);
   width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-icon:hover { background: #E2E8F0; }
