@@ -143,21 +143,27 @@ function renderWidgetScrollable(data) {
     const rainMm = daily.precipitation_sum[d] || 0;
     const roundedRain = Math.round(rainMm);
 
-    // Evaluación foto lunar óptima para el widget
+    // Evaluación foto lunar óptima para el widget (coincidencia <= 90 min)
     const moon = calculateMoonInfo(dObj);
     let sunriseMins = 450;
     let sunsetMins = 1110;
+    let sunriseH = 7;
+    let sunsetH = 19;
+
     if (daily.sunrise && daily.sunrise[d]) {
       const sParts = daily.sunrise[d].split('T')[1].split(':');
-      sunriseMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
+      sunriseH = parseInt(sParts[0]);
+      sunriseMins = sunriseH * 60 + parseInt(sParts[1]);
     }
     if (daily.sunset && daily.sunset[d]) {
       const sParts = daily.sunset[d].split('T')[1].split(':');
-      sunsetMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
+      sunsetH = parseInt(sParts[0]);
+      sunsetMins = sunsetH * 60 + parseInt(sParts[1]);
     }
+
     const diffRise = Math.abs(sunsetMins - moon.riseMins);
     const diffSet = Math.abs(moon.setMins - sunriseMins);
-    const hasGoodMoon = diffRise <= 90 || diffSet <= 90;
+    const hasGoodMoon = (moon.riseMins >= 0 && diffRise <= 90) || (moon.setMins >= 0 && diffSet <= 90);
 
     let uvText = '';
     if (showUv && data.hourly && data.hourly.uv_index) {
@@ -177,10 +183,11 @@ function renderWidgetScrollable(data) {
       }
     }
 
-    // Conteo de horas deporte verde
+    // Conteo de horas deporte verde (ESTRICTAMENTE CON LUZ SOLAR: sunriseH..sunsetH)
     let greenCount = 0;
-    const startH = d === 0 ? currentHourNow : 7;
-    for (let h = startH; h < 22; h++) {
+    const startH = d === 0 ? Math.max(sunriseH, currentHourNow) : sunriseH;
+
+    for (let h = startH; h <= sunsetH; h++) {
       const idx = d * 24 + h;
       if (idx < data.hourly.time.length) {
         const temp = data.hourly.temperature_2m[idx];
@@ -188,10 +195,7 @@ function renderWidgetScrollable(data) {
         const wind = data.hourly.wind_speed_10m[idx];
         const uv = data.hourly.uv_index ? data.hourly.uv_index[idx] : 0;
 
-        if (temp >= getCfg('cfg_opt_min_t', 10) && temp <= getCfg('cfg_opt_max_t', 24) &&
-            rain <= getCfg('cfg_rain_opt_max', 0) &&
-            wind <= getCfg('cfg_wind_opt_max', 25) &&
-            uv <= getCfg('cfg_uv_opt_max', 5)) {
+        if (evaluateSportsTrafficLight(temp, wind, rain, uv) === '🟢') {
           greenCount++;
         }
       }
@@ -270,7 +274,21 @@ function render168HoursTimeline(data) {
 
     const arrow = degToArrow(windDir);
     const bars = windBars(wind);
-    const sportsDot = evaluateSportsTrafficLight(temp, wind, rain, uv);
+
+    // Evaluación estricta de luz solar para ocultar deporte de noche (igual que la app)
+    let sunriseH = 7;
+    let sunsetH = 19;
+    const dIndex = Math.max(0, Math.floor((dateObj - new Date(todayDateStr)) / 86400000));
+
+    if (daily && daily.sunrise && daily.sunrise[dIndex]) {
+      sunriseH = parseInt(daily.sunrise[dIndex].split('T')[1].split(':')[0]);
+    }
+    if (daily && daily.sunset && daily.sunset[dIndex]) {
+      sunsetH = parseInt(daily.sunset[dIndex].split('T')[1].split(':')[0]);
+    }
+
+    const isSunlight = (hr >= sunriseH && hr <= sunsetH);
+    const sportsDot = isSunlight ? evaluateSportsTrafficLight(temp, wind, rain, uv) : '';
 
     mapByDay[dateStr].items.push({
       sortMinute: hr * 60,
@@ -400,9 +418,10 @@ function render168HoursTimeline(data) {
               <span>${it.windStr}</span>
               ${it.uv >= 3 ? `<span class="t-uv" style="margin-left:auto;">UV${it.uv}</span>` : ''}
             </div>
+            ${it.sportsDot ? `
             <div class="t-sports">
               <span>🏃</span><span>${it.sportsDot}</span>
-            </div>
+            </div>` : ''}
           </div>
         `;
       }
