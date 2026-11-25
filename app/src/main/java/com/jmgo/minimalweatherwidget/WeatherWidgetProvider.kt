@@ -588,7 +588,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             views.setPendingIntentTemplate(R.id.lvWidgetDays, openAppPendingIntent)
             views.setOnClickPendingIntent(R.id.widgetRoot, openAppPendingIntent)
 
-            // Al pulsar la hora del widget (tvUpdateTime) se fuerza una descarga inmediata
+            // Al pulsar la hora del widget (tvUpdateTime) o la vista vacía se fuerza una descarga inmediata
             val refreshIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
             }
@@ -597,6 +597,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.tvUpdateTime, refreshPendingIntent)
+            views.setEmptyView(R.id.lvWidgetDays, R.id.empty_view)
+            views.setOnClickPendingIntent(R.id.empty_view, refreshPendingIntent)
 
             // Ubicación actual + Temp actual + UV actual (si UV >= 3)
             val uvHeaderStr = if (currentUv >= 3) "  UV$currentUv" else ""
@@ -609,8 +611,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.tvUpdateTime, displayTime)
             views.setTextColor(R.id.tvUpdateTime, timeColor)
 
-            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
             appWidgetManager.updateAppWidget(appWidgetId, views)
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
         }
     }
 

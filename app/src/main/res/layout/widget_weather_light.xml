@@ -51,4 +51,16 @@
         android:dividerHeight="0dp"
         android:scrollbars="none" />
 
+    <!-- Estado Fallback de Carga por si la lista está vacía -->
+    <TextView
+        android:id="@+id/empty_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="Cargando previsión... Pulsa la hora para actualizar"
+        android:textColor="#718096"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
 </LinearLayout>

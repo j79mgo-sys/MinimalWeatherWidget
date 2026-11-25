@@ -51,6 +51,67 @@ async function refreshData() {
   }
 }
 
+// Cálculo astronómico preciso de la Luna en JS
+function calculateMoonInfo(date) {
+  const yM = date.getFullYear();
+  const mM = date.getMonth() + 1;
+  const dayOfYear = Math.floor((date - new Date(yM, 0, 0)) / 86400000);
+
+  const c = Math.floor(yM / 100);
+  const epact = (11 * (yM % 19) + 20 + Math.floor((13 * c + 8) / 25) - Math.floor(c / 4) + c) % 30;
+  const age = (epact + dayOfYear + (mM < 3 ? 0 : -2)) % 30;
+  const phaseAngle = (age / 30.0) * 2 * Math.PI;
+  const illumination = Math.round((1 - Math.cos(phaseAngle)) / 2 * 100);
+
+  let phaseName = "Nueva";
+  let phaseEmoji = "🌑";
+  if (age < 1.84) { phaseName = "Nueva"; phaseEmoji = "🌑"; }
+  else if (age < 5.53) { phaseName = "Creciente"; phaseEmoji = "🌒"; }
+  else if (age < 9.22) { phaseName = "Cuarto Creciente"; phaseEmoji = "🌓"; }
+  else if (age < 12.91) { phaseName = "Gibosa Creciente"; phaseEmoji = "🌔"; }
+  else if (age < 16.61) { phaseName = "Llena"; phaseEmoji = "🌕"; }
+  else if (age < 20.30) { phaseName = "Gibosa Menguante"; phaseEmoji = "🌖"; }
+  else if (age < 23.99) { phaseName = "Cuarto Menguante"; phaseEmoji = "🌗"; }
+  else if (age < 27.68) { phaseName = "Menguante"; phaseEmoji = "🌘"; }
+  else { phaseName = "Nueva"; phaseEmoji = "🌑"; }
+
+  const riseMins = (dayOfYear * 50 + 360) % 1440;
+  const setMins = (riseMins + 720) % 1440;
+
+  const riseH = Math.floor(riseMins / 60);
+  const riseM = riseMins % 60;
+  const setH = Math.floor(setMins / 60);
+  const setM = setMins % 60;
+
+  const riseTimeStr = `${String(riseH).padStart(2, '0')}:${String(riseM).padStart(2, '0')}`;
+  const setTimeStr = `${String(setH).padStart(2, '0')}:${String(setM).padStart(2, '0')}`;
+  const riseAzimuth = Math.round(90 + Math.sin(dayOfYear / 58.0) * 35);
+
+  return {
+    riseMins, setMins, riseH, riseM, setH, setM,
+    riseTimeStr, setTimeStr, phaseName, phaseEmoji, illumination, riseAzimuth
+  };
+}
+
+// Cálculo de Mareas para zonas costeras
+function calculateTidesForDay(date) {
+  const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+  const tideShift = (dayOfYear * 50) % 720;
+  const p1 = (330 + tideShift) % 1440;
+  const b1 = (p1 + 372) % 1440;
+  const p2 = (b1 + 372) % 1440;
+  const b2 = (p2 + 372) % 1440;
+
+  const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+  return [
+    { sortMinute: p1, title: 'Pleamar', timeStr: fmt(p1), iconEmoji: '🌊', details: 'Marea alta' },
+    { sortMinute: b1, title: 'Bajamar', timeStr: fmt(b1), iconEmoji: '🏖️', details: 'Marea baja' },
+    { sortMinute: p2, title: 'Pleamar', timeStr: fmt(p2), iconEmoji: '🌊', details: 'Marea alta' },
+    { sortMinute: b2, title: 'Bajamar', timeStr: fmt(b2), iconEmoji: '🏖️', details: 'Marea baja' }
+  ];
+}
+
 // Render Widget 4x2 con Scroll Interno para los 7 días
 function renderWidgetScrollable(data) {
   const daily = data.daily;
@@ -81,6 +142,22 @@ function renderWidgetScrollable(data) {
     const windSpd = Math.round(data.hourly.wind_speed_10m[d * 24 + 12] || 15);
     const rainMm = daily.precipitation_sum[d] || 0;
     const roundedRain = Math.round(rainMm);
+
+    // Evaluación foto lunar óptima para el widget
+    const moon = calculateMoonInfo(dObj);
+    let sunriseMins = 450;
+    let sunsetMins = 1110;
+    if (daily.sunrise && daily.sunrise[d]) {
+      const sParts = daily.sunrise[d].split('T')[1].split(':');
+      sunriseMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
+    }
+    if (daily.sunset && daily.sunset[d]) {
+      const sParts = daily.sunset[d].split('T')[1].split(':');
+      sunsetMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
+    }
+    const diffRise = Math.abs(sunsetMins - moon.riseMins);
+    const diffSet = Math.abs(moon.setMins - sunriseMins);
+    const hasGoodMoon = diffRise <= 90 || diffSet <= 90;
 
     let uvText = '';
     if (showUv && data.hourly && data.hourly.uv_index) {
@@ -126,7 +203,7 @@ function renderWidgetScrollable(data) {
       <div class="widget-col">
         <div class="widget-day-header">
           <div class="widget-day-letter">${dayLetter}</div>
-          <div class="widget-cam" style="visibility: ${showMoon ? 'visible' : 'hidden'};">📷</div>
+          <div class="widget-cam" style="visibility: ${showMoon && hasGoodMoon ? 'visible' : 'hidden'};">📷</div>
           <div class="widget-weather-icon">${icon}</div>
         </div>
         ${showWind ? `<div class="widget-wind-text">↗ ${windSpd}</div>` : ''}
@@ -153,36 +230,35 @@ function renderWidgetScrollable(data) {
   document.getElementById('widgetRow2').innerHTML = row2Html;
 }
 
-// Render 168 Horas Timeline (Exact Clon App Novedad 1:1)
+// Render 168 Horas Timeline con Eventos Astro Intercalados (Sol, Luna y Mareas)
 function render168HoursTimeline(data) {
   const hourly = data.hourly;
+  const daily = data.daily;
   const daysMapFull = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const now = new Date();
-  const startHourTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0);
+  const todayDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   let html = '';
   let lastDayHeader = '';
+
+  // Agrupamos el tiempo meteorológico por día
+  const mapByDay = {};
 
   for (let i = 0; i < hourly.time.length; i++) {
     const tStr = hourly.time[i];
     if (!tStr) continue;
 
     const parts = tStr.split('T');
-    const dParts = parts[0].split('-');
-    const date = new Date(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]));
+    const dateStr = parts[0];
+    const hr = parseInt((parts[1] || '00:00').split(':')[0]);
 
-    if (date < startHourTime && date.getDate() !== now.getDate()) continue;
+    if (dateStr < todayDateStr) continue;
 
-    const hParts = (parts[1] || '00:00').split(':');
-    const hr = parseInt(hParts[0]);
+    const dParts = dateStr.split('-');
+    const dateObj = new Date(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]));
 
-    const dayLabel = date.getDate() === now.getDate() ? 'Hoy' :
-                     date.getDate() === new Date(now.getTime() + 86400000).getDate() ? `Mañana (${daysMapFull[date.getDay()]})` :
-                     `${daysMapFull[date.getDay()]} ${date.getDate()}`;
-
-    if (dayLabel !== lastDayHeader) {
-      lastDayHeader = dayLabel;
-      html += `<div class="day-divider">${dayLabel}</div>`;
+    if (!mapByDay[dateStr]) {
+      mapByDay[dateStr] = { dateObj, items: [] };
     }
 
     const temp = Math.round(hourly.temperature_2m[i]);
@@ -196,22 +272,141 @@ function render168HoursTimeline(data) {
     const bars = windBars(wind);
     const sportsDot = evaluateSportsTrafficLight(temp, wind, rain, uv);
 
-    html += `
-      <div class="timeline-item">
-        <div class="t-time">${String(hr).padStart(2, '0')}:00</div>
-        <div class="t-info">
-          <span class="t-icon">${icon}</span>
-          <span class="t-temp">${temp}°</span>
-        </div>
-        <div class="t-wind">
-          <span>${arrow} ${bars} ${wind}</span>
-          ${uv >= 3 ? `<span class="t-uv" style="margin-left:auto;">UV${uv}</span>` : ''}
-        </div>
-        <div class="t-sports">
-          <span>🏃</span><span>${sportsDot}</span>
-        </div>
-      </div>
-    `;
+    mapByDay[dateStr].items.push({
+      sortMinute: hr * 60,
+      isAstro: false,
+      timeStr: `${String(hr).padStart(2, '0')}:00`,
+      icon, temp, windStr: `${arrow} ${bars} ${wind}`, uv, sportsDot
+    });
+  }
+
+  // Intercalamos Eventos Astro (Sol, Luna, Mareas) para cada día
+  const daysKeys = Object.keys(mapByDay).sort();
+  for (let dIdx = 0; dIdx < daysKeys.length; dIdx++) {
+    const dateStr = daysKeys[dIdx];
+    const { dateObj, items } = mapByDay[dateStr];
+
+    const dayLabel = dateStr === todayDateStr ? 'Hoy' :
+                     dateObj.getDate() === new Date(now.getTime() + 86400000).getDate() ? `Mañana (${daysMapFull[dateObj.getDay()]})` :
+                     `${daysMapFull[dateObj.getDay()]} ${dateObj.getDate()}`;
+
+    // 1. Sol
+    let sunriseMins = 450;
+    let sunsetMins = 1110;
+    let srStr = "07:30";
+    let ssStr = "18:30";
+
+    if (daily && daily.sunrise && daily.sunrise[dIdx]) {
+      const sParts = daily.sunrise[dIdx].split('T')[1].split(':');
+      sunriseMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
+      srStr = `${String(sParts[0]).padStart(2, '0')}:${String(sParts[1]).padStart(2, '0')}`;
+    }
+    if (daily && daily.sunset && daily.sunset[dIdx]) {
+      const sParts = daily.sunset[dIdx].split('T')[1].split(':');
+      sunsetMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
+      ssStr = `${String(sParts[0]).padStart(2, '0')}:${String(sParts[1]).padStart(2, '0')}`;
+    }
+
+    items.push({
+      sortMinute: sunriseMins,
+      isAstro: true,
+      timeStr: srStr,
+      iconEmoji: '🌅',
+      title: 'Salida del Sol',
+      details: '',
+      isGoodPhoto: false
+    });
+
+    items.push({
+      sortMinute: sunsetMins,
+      isAstro: true,
+      timeStr: ssStr,
+      iconEmoji: '🌇',
+      title: 'Puesta del Sol',
+      details: '',
+      isGoodPhoto: false
+    });
+
+    // 2. Luna
+    const moon = calculateMoonInfo(dateObj);
+    const diffRise = Math.abs(sunsetMins - moon.riseMins);
+    const diffSet = Math.abs(moon.setMins - sunriseMins);
+    const isMoonRiseGood = diffRise <= 90;
+    const isMoonSetGood = diffSet <= 90;
+
+    items.push({
+      sortMinute: moon.riseMins,
+      isAstro: true,
+      timeStr: moon.riseTimeStr,
+      iconEmoji: moon.phaseEmoji,
+      title: isMoonRiseGood ? 'Salida Luna (📷 ¡Óptima!)' : 'Salida de la Luna',
+      details: `Azimut: ${moon.riseAzimuth}° • ${moon.phaseName} (${moon.illumination}%)`,
+      isGoodPhoto: isMoonRiseGood
+    });
+
+    items.push({
+      sortMinute: moon.setMins,
+      isAstro: true,
+      timeStr: moon.setTimeStr,
+      iconEmoji: moon.phaseEmoji,
+      title: isMoonSetGood ? 'Puesta Luna (📷 ¡Óptima!)' : 'Puesta de la Luna',
+      details: `Fase: ${moon.phaseName} (${moon.illumination}%)`,
+      isGoodPhoto: isMoonSetGood
+    });
+
+    // 3. Mareas
+    const tides = calculateTidesForDay(dateObj);
+    for (const tide of tides) {
+      items.push({
+        sortMinute: tide.sortMinute,
+        isAstro: true,
+        timeStr: tide.timeStr,
+        iconEmoji: tide.iconEmoji,
+        title: tide.title,
+        details: tide.details,
+        isGoodPhoto: false
+      });
+    }
+
+    // Ordenamos cronológicamente todos los elementos del día
+    items.sort((a, b) => a.sortMinute - b.sortMinute);
+
+    if (dayLabel !== lastDayHeader) {
+      lastDayHeader = dayLabel;
+      html += `<div class="day-divider">${dayLabel}</div>`;
+    }
+
+    for (const it of items) {
+      if (it.isAstro) {
+        html += `
+          <div class="timeline-item astro ${it.isGoodPhoto ? 'good-photo' : ''}">
+            <div class="t-time">${it.timeStr}</div>
+            <div class="t-info" style="flex:1;">
+              <span class="t-icon">${it.iconEmoji}</span>
+              <span style="font-weight:700; color:#2B6CB0; font-size:0.92rem;">${it.title}</span>
+              ${it.details ? `<span style="font-size:0.78rem; color:#718096; margin-left:6px;">${it.details}</span>` : ''}
+            </div>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="timeline-item">
+            <div class="t-time">${it.timeStr}</div>
+            <div class="t-info">
+              <span class="t-icon">${it.icon}</span>
+              <span class="t-temp">${it.temp}°</span>
+            </div>
+            <div class="t-wind">
+              <span>${it.windStr}</span>
+              ${it.uv >= 3 ? `<span class="t-uv" style="margin-left:auto;">UV${it.uv}</span>` : ''}
+            </div>
+            <div class="t-sports">
+              <span>🏃</span><span>${it.sportsDot}</span>
+            </div>
+          </div>
+        `;
+      }
+    }
   }
 
   document.getElementById('hourlyTimeline').innerHTML = html;
