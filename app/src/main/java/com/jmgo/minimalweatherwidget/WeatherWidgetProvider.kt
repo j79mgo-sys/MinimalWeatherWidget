@@ -117,7 +117,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     if (!isCacheValid) {
                         updateTimeStr = java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
 
-                        val openMeteoData = fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon, context = context)
+                        val openMeteoData = fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon, days = 7, context = context)
                         val fetchedDays = openMeteoData.second
                         val fetchedCurrentTemp = openMeteoData.first
                         currentUv = openMeteoData.third
@@ -138,7 +138,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             editor.putBoolean("cached_moon_photo", anyGoodMoonPhoto)
                             editor.putBoolean("is_cache_fallback", false)
 
-                            for (i in 0 until minOf(4, fetchedDays.size)) {
+                            for (i in 0 until minOf(7, fetchedDays.size)) {
                                 val d = fetchedDays[i]
                                 editor.putString("c_day_$i", d.dayName)
                                 editor.putString("c_icon_$i", d.icon)
@@ -164,7 +164,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                         currentUv = prefs.getInt("cached_current_uv", 0)
                         updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
 
-                        for (i in 0 until 4) {
+                        for (i in 0 until 7) {
                             val targetDate = nowDate.plusDays(i.toLong())
                             val expectedDayName = diasSemana[targetDate.dayOfWeek.value % 7]
                             val savedTemp = prefs.getString("c_temp_$i", "") ?: ""
@@ -261,7 +261,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         // Extra que se añade al abrir la app desde el widget
         const val EXTRA_REFRESH_FROM_WIDGET = "refresh_from_widget"
 
-        private const val CACHE_VERSION = 24
+        private const val CACHE_VERSION = 25
         // 29 minutos para que la alarma de 30 minutos siempre encuentre la caché caducada
         private const val CACHE_MILLIS = 29 * 60 * 1000L
         // Evita que el widget oscuro y el claro descarguen datos a la vez
@@ -773,7 +773,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     @JvmStatic
-    fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 4, context: Context? = null): Triple<String?, List<DayForecast>, Int> {
+    fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 7, context: Context? = null): Triple<String?, List<DayForecast>, Int> {
         val prefs = context?.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         return try {
             val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +

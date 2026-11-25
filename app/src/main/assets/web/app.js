@@ -10,7 +10,14 @@ function getCfg(key, defaultVal) {
 
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-function openCityModal() { openModal('modalCity'); }
+function openCityModal() {
+  renderFavoritesListInModal();
+  const inp = document.getElementById('inputCitySearch');
+  if (inp) inp.value = '';
+  const sr = document.getElementById('searchResultsList');
+  if (sr) sr.innerHTML = '';
+  openModal('modalCity');
+}
 
 // Carga inicial
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,9 +25,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initApp() {
-  document.getElementById('currentCityLabel').innerText = `📍 ${currentCity}`;
-  document.getElementById('wCityTemp').innerText = `📍 ${currentCity} --°`;
-  refreshData();
+  updateStarIconState();
+  renderFavoritesListInModal();
+
+  const isAuto = localStorage.getItem('cfg_auto_location') !== 'false';
+  if (isAuto) {
+    triggerGpsLocation(false);
+  } else {
+    updateGpsIconState(false);
+    document.getElementById('currentCityLabel').innerText = `📍 ${currentCity}`;
+    refreshData();
+  }
+
   loadEmbalses();
   loadAemetWarnings();
 }
@@ -49,6 +65,258 @@ async function refreshData() {
   } catch (e) {
     console.error('Error al cargar datos:', e);
   }
+}
+
+// --- GESTIÓN DE UBICACIONES, FAVORITOS Y GPS ---
+const DEFAULT_FAVORITES = [
+  { name: "Medina Sidonia", code: "11023", lat: 36.4578, lon: -5.9272 },
+  { name: "San Fernando", code: "11031", lat: 36.4646, lon: -6.1969 }
+];
+
+function getFavoriteTowns() {
+  const jsonStr = localStorage.getItem('cfg_favorite_towns');
+  if (!jsonStr) {
+    localStorage.setItem('cfg_favorite_towns', JSON.stringify(DEFAULT_FAVORITES));
+    return DEFAULT_FAVORITES;
+  }
+  try {
+    const arr = JSON.parse(jsonStr);
+    return Array.isArray(arr) && arr.length > 0 ? arr : DEFAULT_FAVORITES;
+  } catch (e) {
+    return DEFAULT_FAVORITES;
+  }
+}
+
+function saveFavoriteTowns(list) {
+  localStorage.setItem('cfg_favorite_towns', JSON.stringify(list));
+  updateStarIconState();
+  renderFavoritesListInModal();
+}
+
+function isCurrentCityFavorite() {
+  const list = getFavoriteTowns();
+  return list.some(t => t.name.toLowerCase().trim() === currentCity.toLowerCase().trim());
+}
+
+function updateStarIconState() {
+  const starEl = document.getElementById('starIcon');
+  if (!starEl) return;
+  if (isCurrentCityFavorite()) {
+    starEl.innerText = '⭐';
+    starEl.style.opacity = '1.0';
+    starEl.title = 'Quitar de Favoritos';
+  } else {
+    starEl.innerText = '☆';
+    starEl.style.opacity = '0.6';
+    starEl.title = 'Guardar en Favoritos';
+  }
+}
+
+function updateGpsIconState(isAuto) {
+  const gpsEl = document.getElementById('btnGps');
+  if (!gpsEl) return;
+  if (isAuto) {
+    gpsEl.style.opacity = '1.0';
+    gpsEl.title = 'GPS Automático (Activo)';
+  } else {
+    gpsEl.style.opacity = '0.4';
+    gpsEl.title = 'GPS Automático (Inactivo - Toca para activar)';
+  }
+}
+
+function toggleFavoriteCurrentCity() {
+  let list = getFavoriteTowns();
+  const existsIdx = list.findIndex(t => t.name.toLowerCase().trim() === currentCity.toLowerCase().trim());
+  if (existsIdx >= 0) {
+    list.splice(existsIdx, 1);
+  } else {
+    list.unshift({
+      name: currentCity,
+      code: "11000",
+      lat: currentLat,
+      lon: currentLon
+    });
+  }
+  saveFavoriteTowns(list);
+}
+
+function deleteFavoriteTown(townName) {
+  let list = getFavoriteTowns();
+  list = list.filter(t => t.name.toLowerCase().trim() !== townName.toLowerCase().trim());
+  saveFavoriteTowns(list);
+}
+
+function selectTown(town) {
+  localStorage.setItem('cfg_auto_location', 'false');
+  updateGpsIconState(false);
+
+  currentCity = town.name;
+  currentLat = town.lat;
+  currentLon = town.lon;
+
+  localStorage.setItem('cfg_city', currentCity);
+  localStorage.setItem('cfg_lat', currentLat);
+  localStorage.setItem('cfg_lon', currentLon);
+
+  document.getElementById('currentCityLabel').innerText = `📍 ${currentCity}`;
+  updateStarIconState();
+  closeModal('modalCity');
+  refreshData();
+}
+
+function triggerGpsLocation(userTriggered = false) {
+  if (userTriggered) {
+    localStorage.setItem('cfg_auto_location', 'true');
+  }
+
+  const isAuto = localStorage.getItem('cfg_auto_location') !== 'false';
+  updateGpsIconState(isAuto);
+
+  if (!isAuto && !userTriggered) return;
+
+  if (!navigator.geolocation) {
+    if (userTriggered) alert('La geolocalización no está soportada por tu navegador.');
+    return;
+  }
+
+  document.getElementById('currentCityLabel').innerText = `📍 Buscando GPS...`;
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      let detectedName = null;
+
+      // 1. Inversa Open-Meteo
+      try {
+        const revUrl = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=es`;
+        const res = await fetch(revUrl);
+        const json = await res.json();
+        if (json.results && json.results.length > 0) {
+          detectedName = json.results[0].name;
+        }
+      } catch (_e) {}
+
+      // 2. Respaldo BigDataCloud
+      if (!detectedName) {
+        try {
+          const revUrl2 = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`;
+          const res2 = await fetch(revUrl2);
+          const json2 = await res2.json();
+          detectedName = json2.locality || json2.city || json2.principalSubdivision;
+        } catch (_e) {}
+      }
+
+      currentCity = detectedName || 'Ubicación GPS';
+      currentLat = lat;
+      currentLon = lon;
+
+      localStorage.setItem('cfg_city', currentCity);
+      localStorage.setItem('cfg_lat', currentLat);
+      localStorage.setItem('cfg_lon', currentLon);
+
+      document.getElementById('currentCityLabel').innerText = `📍 ${currentCity}`;
+      updateStarIconState();
+      updateGpsIconState(true);
+      if (userTriggered) closeModal('modalCity');
+      refreshData();
+    },
+    (err) => {
+      console.warn('GPS Error/Timeout:', err);
+      updateGpsIconState(false);
+      localStorage.setItem('cfg_auto_location', 'false');
+
+      const favs = getFavoriteTowns();
+      const fallback = favs[0] || DEFAULT_FAVORITES[0];
+      currentCity = fallback.name;
+      currentLat = fallback.lat;
+      currentLon = fallback.lon;
+
+      document.getElementById('currentCityLabel').innerText = `📍 ${currentCity}`;
+      updateStarIconState();
+      refreshData();
+    },
+    { timeout: 8000, enableHighAccuracy: true }
+  );
+}
+
+let searchDebounceTimer = null;
+function onSearchInputDebounced(query) {
+  clearTimeout(searchDebounceTimer);
+  const q = query.trim();
+  if (q.length < 2) {
+    document.getElementById('searchResultsList').innerHTML = '';
+    return;
+  }
+
+  searchDebounceTimer = setTimeout(async () => {
+    try {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=es&format=json`;
+      const res = await fetch(url);
+      const json = await res.json();
+      renderSearchResultsList(json.results || []);
+    } catch (e) {
+      console.error('Error buscando ciudad:', e);
+    }
+  }, 300);
+}
+
+function renderSearchResultsList(results) {
+  const container = document.getElementById('searchResultsList');
+  if (!results || results.length === 0) {
+    container.innerHTML = `<div style="font-size:0.85rem; color:#718096; padding:6px;">No se encontraron municipios.</div>`;
+    return;
+  }
+
+  let html = '';
+  results.forEach(r => {
+    const name = r.name;
+    const admin1 = r.admin1 ? `, ${r.admin1}` : '';
+    const country = r.country ? ` (${r.country})` : '';
+    const lat = r.latitude;
+    const lon = r.longitude;
+
+    const townObjStr = JSON.stringify({ name, code: "11000", lat, lon }).replace(/"/g, '&quot;');
+
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#F7FAFC; border:1px solid #E2E8F0; border-radius:8px; cursor:pointer;" onclick="selectTown(${townObjStr})">
+        <div>
+          <span style="font-weight:700; color:#2B6CB0;">${name}</span>
+          <span style="font-size:0.8rem; color:#718096;">${admin1}${country}</span>
+        </div>
+        <span style="color:#3182CE; font-weight:700; font-size:0.85rem;">Seleccionar ➔</span>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function renderFavoritesListInModal() {
+  const container = document.getElementById('favoritesList');
+  if (!container) return;
+  const list = getFavoriteTowns();
+
+  if (list.length === 0) {
+    container.innerHTML = `<div style="font-size:0.85rem; color:#718096;">No tienes ubicaciones favoritas guardadas.</div>`;
+    return;
+  }
+
+  let html = '';
+  list.forEach(t => {
+    const isCurrent = t.name.toLowerCase().trim() === currentCity.toLowerCase().trim();
+    const townObjStr = JSON.stringify(t).replace(/"/g, '&quot;');
+    const townNameEscaped = t.name.replace(/'/g, "\\'");
+
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:${isCurrent ? '#EBF8FF' : '#FFFFFF'}; border:1px solid ${isCurrent ? '#BEE3F8' : '#E2E8F0'}; border-radius:8px;">
+        <div style="cursor:pointer; flex:1;" onclick="selectTown(${townObjStr})">
+          <span style="font-weight:700; color:${isCurrent ? '#2B6CB0' : '#2D3748'};">⭐ ${t.name}</span>
+        </div>
+        <button style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:#E53E3E; padding:2px 6px;" onclick="event.stopPropagation(); deleteFavoriteTown('${townNameEscaped}')" title="Eliminar de favoritos">🗑️</button>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
 }
 
 // Cálculo astronómico preciso de la Luna en JS
@@ -203,6 +471,11 @@ function renderWidgetScrollable(data) {
 
     const sportsColor = greenCount > 0 ? '#2E7D32' : '#718096';
 
+    // Colores exactos del código Kotlin de Android
+    const tempColor = maxT >= 30 ? '#E53E3E' : (minT <= 10 ? '#3182CE' : '#1A202C');
+    const isWindHigh = windSpd >= 30;
+    const windColor = isWindHigh ? '#E53E3E' : '#4A5568';
+
     const colHtml = `
       <div class="widget-col">
         <div class="widget-day-header">
@@ -210,8 +483,8 @@ function renderWidgetScrollable(data) {
           <div class="widget-cam" style="visibility: ${showMoon && hasGoodMoon ? 'visible' : 'hidden'};">📷</div>
           <div class="widget-weather-icon">${icon}</div>
         </div>
-        ${showWind ? `<div class="widget-wind-text">↗ ${windSpd}</div>` : ''}
-        <div class="widget-temp-text">${maxT}° / ${minT}°</div>
+        ${showWind ? `<div class="widget-wind-text" style="color: ${windColor};">↗ ${windSpd}</div>` : ''}
+        <div class="widget-temp-text" style="color: ${tempColor};">${maxT}° / ${minT}°</div>
         <div class="widget-rain-uv-row">
           ${showRain && roundedRain >= 1 ? `<span style="color:#3182CE;">💧${roundedRain}</span>` : ''}
           ${showUv && uvText ? `<span style="color:#DD6B20;">UV</span> <span style="color:#E53E3E;">${uvText}</span>` : ''}
@@ -290,11 +563,16 @@ function render168HoursTimeline(data) {
     const isSunlight = (hr >= sunriseH && hr <= sunsetH);
     const sportsDot = isSunlight ? evaluateSportsTrafficLight(temp, wind, rain, uv) : '';
 
+    // Colores exactos de Kotlin para la previsión horaria
+    const tempColor = temp >= 35 ? '#E53E3E' : (temp <= 10 ? '#3182CE' : '#2D3748');
+    const isWindHigh = wind >= 30 || bars.includes('|||');
+    const windColor = isWindHigh ? '#E53E3E' : '#718096';
+
     mapByDay[dateStr].items.push({
       sortMinute: hr * 60,
       isAstro: false,
       timeStr: `${String(hr).padStart(2, '0')}:00`,
-      icon, temp, windStr: `${arrow} ${bars} ${wind}`, uv, sportsDot
+      icon, temp, tempColor, windStr: `${arrow} ${bars} ${wind}`, windColor, uv, sportsDot
     });
   }
 
@@ -412,9 +690,9 @@ function render168HoursTimeline(data) {
             <div class="t-time">${it.timeStr}</div>
             <div class="t-info">
               <span class="t-icon">${it.icon}</span>
-              <span class="t-temp">${it.temp}°</span>
+              <span class="t-temp" style="color: ${it.tempColor};">${it.temp}°</span>
             </div>
-            <div class="t-wind">
+            <div class="t-wind" style="color: ${it.windColor};">
               <span>${it.windStr}</span>
               ${it.uv >= 3 ? `<span class="t-uv" style="margin-left:auto;">UV${it.uv}</span>` : ''}
             </div>
