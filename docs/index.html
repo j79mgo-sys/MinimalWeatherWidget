@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Weather Widget - Versión Web & PWA</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <meta name="theme-color" content="#2B6CB0">
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- CABECERA FIJA (Sticky Header) -->
+    <div class="sticky-header">
+      <div class="header-row">
+        <div class="city-title" onclick="openCityModal()">
+          <span id="currentCityLabel">📍 Medina Sidonia</span>
+          <span id="currentTemp" style="color: #D69E2E; margin-left: 4px;">--°</span>
+          <span id="starIcon" style="cursor: pointer;">⭐</span>
+        </div>
+        <div class="header-actions">
+          <button class="btn-icon" title="Avisos AEMET" onclick="openModal('modalAvisos')">🔔</button>
+          <button class="btn-icon" title="Termómetro" onclick="openModal('modalTemp')">🌡️</button>
+          <button class="btn-icon" title="Ajustes Widget" onclick="openModal('modalConfig')">⚙️</button>
+          <button class="btn-icon" title="Criterios Deporte" onclick="openModal('modalSports')">🏃</button>
+          <button class="btn-icon" title="Web AEMET" onclick="window.open('https://www.aemet.es', '_blank')">🌐</button>
+          <button class="btn-icon" title="Embalses Cádiz" onclick="openModal('modalEmbalses')">🏞️</button>
+          <button class="btn-icon" title="Radar/Mapas" onclick="openModal('modalMaps')">🗺️</button>
+          <button class="btn-icon" title="Manual/Ayuda" onclick="openModal('modalHelp')">📖</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLON INTERACTIVO WIDGET 4x2 CON SCROLL VERTICAL (7 Días) -->
+    <div class="widget-preview-card">
+      <div class="widget-header-row">
+        <div class="widget-city-temp" id="wCityTemp">📍 Medina Sidonia --°</div>
+        <div class="widget-update-time" id="wTime" onclick="refreshData()" style="cursor: pointer;">Act.: --:--</div>
+      </div>
+
+      <div class="widget-scroll-container" id="widgetScrollBox">
+        <!-- Fila 1: Días 1..4 -->
+        <div class="widget-cols-row" id="widgetRow1"></div>
+        <!-- Fila 2: Días 5..7 -->
+        <div class="widget-cols-row" id="widgetRow2"></div>
+      </div>
+    </div>
+
+    <!-- TARJETA AVISOS AEMET -->
+    <div class="card" id="cardAvisos">
+      <div class="card-title">
+        <span>📢 Avisos Oficiales AEMET</span>
+        <span style="font-size:0.75rem; color:#718096; font-weight:normal;" id="aemetProvinceLabel">Cádiz</span>
+      </div>
+      <div id="aemetWarningsContent" style="font-size:0.85rem; color:#4A5568;">
+        Cargando avisos meteorológicos oficiales...
+      </div>
+    </div>
+
+    <!-- TARJETA EMBALSES -->
+    <div class="card" id="cardEmbalses">
+      <div class="card-title">
+        <span>💧 Embalses (Provincia de Cádiz)</span>
+      </div>
+      <div id="embalsesContent" style="font-size:0.85rem; color:#4A5568;">
+        Cargando nivel de agua en embalses...
+      </div>
+    </div>
+
+    <!-- PREVISIÓN POR HORAS COMPLETA A 7 DÍAS (168 HORAS) -->
+    <div style="font-size:1.05rem; font-weight:700; color:var(--primary); margin-top:4px;">
+      ⏱️ Previsión por Horas (7 Días / 168 Horas)
+    </div>
+
+    <div id="hourlyTimeline">
+      <!-- Días y horas inyectados dinámicamente -->
+    </div>
+
+  </div>
+
+  <!-- MODAL: CAMBIAR UBICACIÓN -->
+  <div class="modal" id="modalCity">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">📍 Cambiar Localidad</span>
+        <button class="close-btn" onclick="closeModal('modalCity')">×</button>
+      </div>
+      <div class="form-group">
+        <label>Buscar Municipio o Ciudad:</label>
+        <input type="text" id="inputCitySearch" placeholder="ej. Medina Sidonia, Cádiz..." onkeyup="if(event.key==='Enter') searchCity()">
+      </div>
+      <button class="btn-submit" onclick="searchCity()">Buscar Ubicación</button>
+      <div id="searchResults" style="display:flex; flex-direction:column; gap:4px; margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: AVISOS AEMET DETALLE -->
+  <div class="modal" id="modalAvisos">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">📢 Avisos Oficiales AEMET</span>
+        <button class="close-btn" onclick="closeModal('modalAvisos')">×</button>
+      </div>
+      <div id="aemetModalBody" style="font-size:0.9rem; line-height:1.4;">
+        Cargando detalle de avisos oficiales...
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MODO TEMPERATURA -->
+  <div class="modal" id="modalTemp">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">🌡️ Tipo de Temperatura</span>
+        <button class="close-btn" onclick="closeModal('modalTemp')">×</button>
+      </div>
+      <div class="switch-row">
+        <label for="radioRealTemp">Temperatura Real (Máx/Mín)</label>
+        <input type="radio" id="radioRealTemp" name="tempMode" value="real" checked onchange="toggleTempMode('real')">
+      </div>
+      <div class="switch-row">
+        <label for="radioApparentTemp">Sensación Térmica (Máx/Mín)</label>
+        <input type="radio" id="radioApparentTemp" name="tempMode" value="apparent" onchange="toggleTempMode('apparent')">
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AJUSTES DE VISIBILIDAD WIDGET -->
+  <div class="modal" id="modalConfig">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">⚙️ Ajustes del Widget</span>
+        <button class="close-btn" onclick="closeModal('modalConfig')">×</button>
+      </div>
+      <div class="switch-row"><label>📷 Cámara lunar</label><input type="checkbox" id="cbMoon" checked onchange="saveWidgetSwitches()"></div>
+      <div class="switch-row"><label>💨 Viento</label><input type="checkbox" id="cbWind" checked onchange="saveWidgetSwitches()"></div>
+      <div class="switch-row"><label>💧 Lluvia</label><input type="checkbox" id="cbRain" checked onchange="saveWidgetSwitches()"></div>
+      <div class="switch-row"><label>UV Índice UV</label><input type="checkbox" id="cbUv" checked onchange="saveWidgetSwitches()"></div>
+      <div class="switch-row"><label>🏃 Horas deporte (verde)</label><input type="checkbox" id="cbSports" checked onchange="saveWidgetSwitches()"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: CRITERIOS DEPORTE -->
+  <div class="modal" id="modalSports">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">🏃 Criterios Deporte al Aire Libre</span>
+        <button class="close-btn" onclick="closeModal('modalSports')">×</button>
+      </div>
+      <div class="form-group"><label>Temp. Óptima Mín (°C):</label><input type="number" id="cfgOptMinT" value="10"></div>
+      <div class="form-group"><label>Temp. Óptima Máx (°C):</label><input type="number" id="cfgOptMaxT" value="24"></div>
+      <div class="form-group"><label>Viento Óptimo Máx (km/h):</label><input type="number" id="cfgWindOptMax" value="25"></div>
+      <div class="form-group"><label>Lluvia Óptima Máx (mm):</label><input type="number" id="cfgRainOptMax" value="0"></div>
+      <div class="form-group"><label>UV Óptimo Máx:</label><input type="number" id="cfgUvOptMax" value="5"></div>
+      <button class="btn-submit" onclick="saveSportsConfig()">Guardar Criterios</button>
+    </div>
+  </div>
+
+  <!-- MODAL: EMBALSES -->
+  <div class="modal" id="modalEmbalses">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">🏞️ Embalses de Cádiz</span>
+        <button class="close-btn" onclick="closeModal('modalEmbalses')">×</button>
+      </div>
+      <div id="embalsesModalBody" style="font-size:0.88rem; line-height:1.4;">
+        Cargando listado detallado de embalses...
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MAPAS / RADAR -->
+  <div class="modal" id="modalMaps">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">🗺️ Mapas y Radar</span>
+        <button class="close-btn" onclick="closeModal('modalMaps')">×</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn-submit" onclick="window.open('https://www.aemet.es/es/eltiempo/observacion/radar', '_blank')">📡 Radar Precipitación AEMET</button>
+        <button class="btn-submit" onclick="window.open('https://www.aemet.es/es/eltiempo/observacion/satelite/infrarrojo', '_blank')">🛰️ Satélite Infrarrojo AEMET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL Y AYUDA -->
+  <div class="modal" id="modalHelp">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">📖 Manual y Ayuda del Sistema</span>
+        <button class="close-btn" onclick="closeModal('modalHelp')">×</button>
+      </div>
+      <div style="font-size:0.85rem; line-height:1.4; color:#2D3748;">
+        <p><b>🔍 Funcionamiento de la Aplicación</b></p>
+        <p>• <b>Fuente de datos:</b> Open-Meteo proporciona la previsión meteorológica completa para 7 días (168 horas) en tiempo real.</p>
+        <p>• <b>Avisos AEMET:</b> Muestra las alertas meteorológicas oficiales de AEMET sin requerir clave de usuario.</p>
+        <p>• <b>Widget 4x2 desplazable:</b> Permite deslizar verticalmente entre los 7 días de previsión en 2 filas.</p>
+        <p>• <b>Fotografía Lunar 📷:</b> Pulsa sobre cualquier hora lunar o icono de cámara para abrir el desglose astronómico de acimut, elevación y crepúsculos.</p>
+        <p>• <b>Semáforo Deportivo 🏃:</b> Las horas en verde (`🏃 X h`) contabilizan las horas diurnas que cumplen tus criterios ideales de temperatura, lluvia, viento y UV.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALLE LUNAR -->
+  <div class="modal" id="modalLunar">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">📷 Detalle Fotografía Lunar</span>
+        <button class="close-btn" onclick="closeModal('modalLunar')">×</button>
+      </div>
+      <div id="lunarModalBody"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
