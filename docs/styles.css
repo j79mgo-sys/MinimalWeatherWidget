@@ -52,7 +52,7 @@ body {
 }
 
 .city-title {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--primary);
   display: flex;
@@ -197,28 +197,27 @@ body {
   margin-top: 1px;
 }
 
-/* Cards */
+/* Cards (Avisos, Embalses) */
 .card {
   background: var(--card-bg);
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--border-color);
-  padding: 10px 12px;
+  padding: 12px 14px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.02);
 }
 
 .card-title {
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   font-weight: 700;
   color: var(--primary);
-  margin-bottom: 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-/* Timeline Section */
+/* Timeline Section (Exact Clon App Novedad 1:1) */
 .day-divider {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--primary);
   margin: 12px 0 6px 0;
@@ -228,13 +227,13 @@ body {
 .timeline-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
+  padding: 8px 12px;
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  margin-bottom: 4px;
-  font-size: 0.85rem;
+  border-radius: 14px;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 
 .timeline-item.astro {
@@ -247,31 +246,47 @@ body {
 }
 
 .t-time {
+  font-size: 1.02rem;
   font-weight: 700;
-  width: 45px;
-  color: #2D3748;
-}
-
-.t-info {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  color: #1A202C;
+  min-width: 48px;
 }
 
 .t-icon {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  margin-right: 6px;
 }
 
 .t-temp {
+  font-size: 1.02rem;
   font-weight: 700;
+  color: #1A202C;
+  min-width: 44px;
 }
 
-.t-meta {
+.t-wind {
+  font-size: 0.82rem;
+  color: #718096;
+  flex: 1;
   display: flex;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: #4A5568;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.t-uv {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #E53E3E;
+  margin-right: 6px;
+}
+
+.t-sports {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.95rem;
+  margin-left: 4px;
 }
 
 /* Modals */

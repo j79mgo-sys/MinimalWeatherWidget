@@ -1683,7 +1683,7 @@ class MainActivity : ComponentActivity() {
     private fun openWebVersion() {
         try {
             val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-            val publicUrl = prefs.getString("cfg_public_url", null) ?: "https://minimalweatherwidget.netlify.app/"
+            val publicUrl = prefs.getString("cfg_public_url", null) ?: "https://j79mgo-sys.github.io/MinimalWeatherWidget/"
             val webView = android.webkit.WebView(this).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true

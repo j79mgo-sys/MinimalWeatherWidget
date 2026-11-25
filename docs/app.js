@@ -153,7 +153,7 @@ function renderWidgetScrollable(data) {
   document.getElementById('widgetRow2').innerHTML = row2Html;
 }
 
-// Render 168 Horas Timeline
+// Render 168 Horas Timeline (Exact Clon App Novedad 1:1)
 function render168HoursTimeline(data) {
   const hourly = data.hourly;
   const daysMapFull = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -182,32 +182,80 @@ function render168HoursTimeline(data) {
 
     if (dayLabel !== lastDayHeader) {
       lastDayHeader = dayLabel;
-      html += `<div class="day-divider">📅 ${dayLabel}</div>`;
+      html += `<div class="day-divider">${dayLabel}</div>`;
     }
 
     const temp = Math.round(hourly.temperature_2m[i]);
     const rain = hourly.precipitation[i] || 0;
     const wind = Math.round(hourly.wind_speed_10m[i] || 0);
+    const windDir = hourly.wind_direction_10m ? hourly.wind_direction_10m[i] : 0;
     const uv = Math.round(hourly.uv_index ? hourly.uv_index[i] : 0);
     const icon = wmoToEmoji(hourly.weather_code[i]);
+
+    const arrow = degToArrow(windDir);
+    const bars = windBars(wind);
+    const sportsDot = evaluateSportsTrafficLight(temp, wind, rain, uv);
 
     html += `
       <div class="timeline-item">
         <div class="t-time">${String(hr).padStart(2, '0')}:00</div>
         <div class="t-info">
           <span class="t-icon">${icon}</span>
-          <span class="t-temp">${temp}°C</span>
+          <span class="t-temp">${temp}°</span>
         </div>
-        <div class="t-meta">
-          <span>↗ ${wind} km/h</span>
-          ${rain >= 0.5 ? `<span style="color:#3182CE;">💧${Math.round(rain)} mm</span>` : ''}
-          ${uv >= 3 ? `<span style="color:#E53E3E;">UV${uv}</span>` : ''}
+        <div class="t-wind">
+          <span>${arrow} ${bars} ${wind}</span>
+          ${uv >= 3 ? `<span class="t-uv" style="margin-left:auto;">UV${uv}</span>` : ''}
+        </div>
+        <div class="t-sports">
+          <span>🏃</span><span>${sportsDot}</span>
         </div>
       </div>
     `;
   }
 
   document.getElementById('hourlyTimeline').innerHTML = html;
+}
+
+// Wind Speed to Bars (| / || / |||)
+function windBars(speed) {
+  if (speed >= 30) return '|||';
+  if (speed >= 15) return '||';
+  return '|';
+}
+
+// Wind Degrees to Arrow
+function degToArrow(deg) {
+  const arrows = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘'];
+  const idx = Math.round(deg / 45) % 8;
+  return arrows[idx];
+}
+
+// Evaluate Sports Traffic Light (🟢 / 🟡 / 🔴)
+function evaluateSportsTrafficLight(temp, wind, rain, uv) {
+  const optMinT = getCfg('cfg_opt_min_t', 10);
+  const optMaxT = getCfg('cfg_opt_max_t', 24);
+  const redMinT = getCfg('cfg_red_min_t', 4);
+  const redMaxT = getCfg('cfg_red_max_t', 31);
+
+  const windOptMax = getCfg('cfg_wind_opt_max', 25);
+  const windRedMax = getCfg('cfg_wind_red_max', 40);
+
+  const rainOptMax = getCfg('cfg_rain_opt_max', 0);
+  const rainRedMax = getCfg('cfg_rain_red_max', 1.5);
+
+  const uvOptMax = getCfg('cfg_uv_opt_max', 5);
+  const uvRedMax = getCfg('cfg_uv_red_max', 8);
+
+  const tLvl = (temp >= optMinT && temp <= optMaxT) ? 2 : ((temp >= redMinT && temp <= redMaxT) ? 1 : 0);
+  const rLvl = (rain <= rainOptMax) ? 2 : ((rain <= rainRedMax) ? 1 : 0);
+  const wLvl = (wind <= windOptMax) ? 2 : ((wind <= windRedMax) ? 1 : 0);
+  const uvLvl = (uv <= uvOptMax) ? 2 : ((uv <= uvRedMax) ? 1 : 0);
+
+  const minLvl = Math.min(tLvl, rLvl, wLvl, uvLvl);
+  if (minLvl === 2) return '🟢';
+  if (minLvl === 1) return '🟡';
+  return '🔴';
 }
 
 // Helper functions
