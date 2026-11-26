@@ -285,12 +285,25 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
          * Se puede llamar desde la app (cambio de ubicación, al abrirla, etc.).
          */
         fun requestRefresh(context: Context) {
-            val intent = Intent(context, WeatherWidgetProvider::class.java).apply {
+            val darkIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
             }
-            context.sendBroadcast(intent)
+            context.sendBroadcast(darkIntent)
+
+            val lightIntent = Intent(context, LightWeatherWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+            }
+            context.sendBroadcast(lightIntent)
 
             AemetOnly4x1WidgetProvider.requestRefresh(context)
+        }
+
+        @JvmStatic
+        fun fixLongitudeSignIfNeeded(cityName: String, lat: Double, lon: Double): Double {
+            if (lat in 35.0..44.0 && lon > 0.0) {
+                return -abs(lon)
+            }
+            return lon
         }
 
         fun getRecentTowns(context: Context): MutableList<KnownTown> {
@@ -304,12 +317,16 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 val list = mutableListOf<KnownTown>()
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
+                    val tName = o.getString("name")
+                    val tLat = o.getDouble("lat")
+                    val rawLon = o.getDouble("lon")
+                    val fixedLon = fixLongitudeSignIfNeeded(tName, tLat, rawLon)
                     list.add(
                         KnownTown(
-                            name = o.getString("name"),
+                            name = tName,
                             code = o.optString("code", ""),
-                            lat = o.getDouble("lat"),
-                            lon = o.getDouble("lon")
+                            lat = tLat,
+                            lon = fixedLon
                         )
                     )
                 }
@@ -685,7 +702,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val savedCode = try { prefs.getString("code", "11023") ?: "11023" } catch (_: Exception) { "11023" }
         val savedCity = try { prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia" } catch (_: Exception) { "Medina Sidonia" }
         val savedLat = safeGetDouble(prefs, "lat", 36.4578)
-        val savedLon = safeGetDouble(prefs, "lon", -5.9272)
+        var savedLon = safeGetDouble(prefs, "lon", -5.9272)
+        savedLon = fixLongitudeSignIfNeeded(savedCity, savedLat, savedLon)
 
         if (isManual) {
             return LocationData(savedLat, savedLon, savedCity, savedCode)
@@ -776,11 +794,11 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 7, context: Context? = null): Triple<String?, List<DayForecast>, Int> {
         val prefs = context?.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         return try {
-            val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
-                    "&current=temperature_2m,uv_index" +
-                    "&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max" +
-                    "&hourly=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,uv_index" +
-                    "&timezone=Europe%2FMadrid&forecast_days=${days + 2}"
+            val url = String.format(
+                Locale.US,
+                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max&hourly=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,uv_index&timezone=auto&forecast_days=%d",
+                lat, lon, days + 2
+            )
             val resp = httpGet(url, Charset.forName("UTF-8")) ?: return Triple(null, emptyList(), 0)
             val json = JSONObject(resp)
 

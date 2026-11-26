@@ -251,10 +251,12 @@ function onSearchInputDebounced(query) {
 
   searchDebounceTimer = setTimeout(async () => {
     try {
-      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=es&format=json`;
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=es&format=json`;
       const res = await fetch(url);
       const json = await res.json();
-      renderSearchResultsList(json.results || []);
+      const rawResults = json.results || [];
+      const spanishResults = rawResults.filter(r => (r.country_code && r.country_code.toLowerCase() === 'es') || (r.country && r.country.toLowerCase() === 'españa'));
+      renderSearchResultsList(spanishResults.length > 0 ? spanishResults : rawResults);
     } catch (e) {
       console.error('Error buscando ciudad:', e);
     }

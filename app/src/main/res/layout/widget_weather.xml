@@ -5,20 +5,18 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_widget"
     android:orientation="vertical"
-    android:paddingStart="10dp"
-    android:paddingEnd="10dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp">
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
 
-    <!-- Cabecera Superior (22dp) -->
+    <!-- Cabecera Superior -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="22dp"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:layout_marginBottom="2dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp">
+        android:layout_marginBottom="2dp">
 
         <TextView
             android:id="@+id/tvHeaderCityTemp"
@@ -30,7 +28,7 @@
             android:singleLine="true"
             android:text="📍 Medina Sidonia 23°"
             android:textColor="#FFD700"
-            android:textSize="13sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -40,16 +38,16 @@
             android:includeFontPadding="false"
             android:text=""
             android:textColor="#A0AEC0"
-            android:textSize="10.5sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 
-    <!-- ListView ajustado a 106dp exactos (1:1 con la fila de 106dp) -->
+    <!-- ListView que ocupa todo el espacio restante hasta el borde inferior (layout_height=0dp + weight=1) -->
     <ListView
         android:id="@+id/lvWidgetDays"
         android:layout_width="match_parent"
-        android:layout_height="106dp"
-        android:layout_gravity="center_vertical"
-        android:clipToPadding="true"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
         android:divider="@null"
         android:dividerHeight="0dp"
         android:scrollbars="none" />
@@ -58,12 +56,13 @@
     <TextView
         android:id="@+id/empty_view"
         android:layout_width="match_parent"
-        android:layout_height="106dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center"
         android:includeFontPadding="false"
         android:text="Cargando previsión... Pulsa la hora para actualizar"
         android:textColor="#A0AEC0"
-        android:textSize="11.5sp"
+        android:textSize="12sp"
         android:visibility="gone" />
 
 </LinearLayout>
