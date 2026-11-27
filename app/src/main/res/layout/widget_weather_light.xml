@@ -10,37 +10,6 @@
     android:paddingTop="6dp"
     android:paddingBottom="6dp">
 
-    <!-- Cabecera Superior -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:layout_marginBottom="2dp">
-
-        <TextView
-            android:id="@+id/tvHeaderCityTemp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:includeFontPadding="false"
-            android:singleLine="true"
-            android:text="📍 Medina Sidonia 23°"
-            android:textColor="#D69E2E"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvUpdateTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:includeFontPadding="false"
-            android:text=""
-            android:textColor="#4A5568"
-            android:textSize="11sp" />
-    </LinearLayout>
-
     <!-- ListView que ocupa todo el espacio restante hasta el borde inferior (layout_height=0dp + weight=1) -->
     <ListView
         android:id="@+id/lvWidgetDays"
@@ -60,7 +29,7 @@
         android:layout_weight="1"
         android:gravity="center"
         android:includeFontPadding="false"
-        android:text="Cargando previsión... Pulsa la hora para actualizar"
+        android:text="Cargando previsión... Pulsa para actualizar"
         android:textColor="#718096"
         android:textSize="12sp"
         android:visibility="gone" />

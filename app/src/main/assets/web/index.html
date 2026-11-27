@@ -17,7 +17,7 @@
     <div class="sticky-header">
       <div class="header-row-top">
         <div class="city-title" onclick="openCityModal()">
-          <span id="currentCityLabel">📍 Medina Sidonia</span>
+          <span id="currentCityLabel">📍 Cargando...</span>
           <span id="currentTemp" style="color: #D69E2E; margin-left: 4px;">--°</span>
         </div>
         <div class="header-tools" style="display: flex; gap: 8px; align-items: center;">
@@ -40,7 +40,7 @@
     <!-- CLON INTERACTIVO WIDGET 4x2 DESPLEGADO COMPLETO (7 Días) -->
     <div class="widget-preview-card">
       <div class="widget-header-row">
-        <div class="widget-city-temp" id="wCityTemp">📍 Medina Sidonia --°</div>
+        <div class="widget-city-temp" id="wCityTemp">📍 Cargando...</div>
         <div class="widget-update-time" id="wTime" onclick="refreshData()" style="cursor: pointer;">Act.: --:--</div>
       </div>
 
@@ -98,7 +98,7 @@
 
       <div class="form-group" style="margin-bottom:8px;">
         <label style="font-weight:700; color:#2D3748;">Buscador de Municipios:</label>
-        <input type="text" id="inputCitySearch" placeholder="Escribe un municipio (ej. Madrid, Medina Sidonia...)" oninput="onSearchInputDebounced(this.value)">
+        <input type="text" id="inputCitySearch" placeholder="Escribe un municipio (ej. Madrid, Barcelona...)" oninput="onSearchInputDebounced(this.value)">
       </div>
 
       <div id="searchResultsList" style="display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>

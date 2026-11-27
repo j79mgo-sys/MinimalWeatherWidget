@@ -1,5 +1,5 @@
 // Configuración Inicial
-let currentCity = localStorage.getItem('cfg_city') || 'Medina Sidonia';
+let currentCity = localStorage.getItem('cfg_city') || '';
 let currentLat = parseFloat(localStorage.getItem('cfg_lat')) || 36.4578;
 let currentLon = parseFloat(localStorage.getItem('cfg_lon')) || -5.9272;
 

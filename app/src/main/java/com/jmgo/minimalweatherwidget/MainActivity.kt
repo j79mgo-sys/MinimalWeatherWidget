@@ -341,7 +341,7 @@ class MainActivity : ComponentActivity() {
     private fun checkAndMigrateLongitudeSign() {
         try {
             val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-            val city = prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia"
+            val city = prefs.getString("city", "") ?: ""
             val lat = prefs.getFloat("lat", 36.4578f).toDouble()
             var lon = prefs.getFloat("lon", -5.9272f).toDouble()
 
@@ -354,7 +354,7 @@ class MainActivity : ComponentActivity() {
                     .putFloat("lon", -6.1969f)
                     .putLong("last_fetch_time", 0L)
                     .putLong("last_hourly_fetch_time", 0L)
-                    .apply()
+                    .commit()
                 return
             }
 
@@ -364,7 +364,7 @@ class MainActivity : ComponentActivity() {
                     .putFloat("lon", lon.toFloat())
                     .putLong("last_fetch_time", 0L)
                     .putLong("last_hourly_fetch_time", 0L)
-                    .apply()
+                    .commit()
             }
         } catch (_: Exception) {}
     }
@@ -500,7 +500,7 @@ class MainActivity : ComponentActivity() {
                             .putBoolean("manual_location", false)
                             .putLong("last_fetch_time", 0L)
                             .putLong("last_hourly_fetch_time", 0L)
-                            .apply()
+                            .commit()
                         checkCacheAndLoadData(forceRefresh = true)
                     }
                     1 -> {
@@ -519,7 +519,7 @@ class MainActivity : ComponentActivity() {
                                 .putFloat("lon", fixedLon.toFloat())
                                 .putLong("last_fetch_time", 0L)
                                 .putLong("last_hourly_fetch_time", 0L)
-                                .apply()
+                                .commit()
 
                             WeatherWidgetProvider.requestRefresh(this@MainActivity)
                             checkCacheAndLoadData(forceRefresh = true)
@@ -551,7 +551,7 @@ class MainActivity : ComponentActivity() {
                 "Palma", "Bilbao", "Alicante", "Córdoba", "Valladolid", "Vigo", "Gijón",
                 "Granada", "Oviedo", "Cartagena", "Jerez de la Frontera", "Almería", "San Sebastián",
                 "Burgos", "Santander", "Albacete", "San Fernando", "Logroño", "Badajoz", "Huelva",
-                "Salamanca", "Marbella", "Tarragona", "León", "Cádiz", "Jaén", "Medina Sidonia", "Chiclana de la Frontera"
+                "Salamanca", "Marbella", "Tarragona", "León", "Cádiz", "Jaén", "Chiclana de la Frontera"
             ))
         }
 
@@ -885,7 +885,7 @@ class MainActivity : ComponentActivity() {
                             .putFloat("lon", lon.toFloat())
                             .putLong("last_fetch_time", 0L)
                             .putLong("last_hourly_fetch_time", 0L)
-                            .apply()
+                            .commit()
 
                         WeatherWidgetProvider.requestRefresh(this@MainActivity)
                         checkCacheAndLoadData(forceRefresh = true)
@@ -901,36 +901,7 @@ class MainActivity : ComponentActivity() {
 
     private fun notifyWidgetsUpdate() {
         try {
-            val manager = AppWidgetManager.getInstance(this)
-
-            // Actualizar widget oscuro con su propio ID
-            val darkIds = manager.getAppWidgetIds(ComponentName(this, WeatherWidgetProvider::class.java))
-            if (darkIds.isNotEmpty()) {
-                val darkIntent = Intent(this, WeatherWidgetProvider::class.java).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, darkIds)
-                }
-                sendBroadcast(darkIntent)
-            }
-
-            // Actualizar widget claro con su propio ID
-            val lightIds = manager.getAppWidgetIds(ComponentName(this, LightWeatherWidgetProvider::class.java))
-            if (lightIds.isNotEmpty()) {
-                val lightIntent = Intent(this, LightWeatherWidgetProvider::class.java).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, lightIds)
-                }
-                sendBroadcast(lightIntent)
-            }
-
-            // Actualizar widget AEMET exclusivo 4x1
-            val aemetIds = manager.getAppWidgetIds(ComponentName(this, AemetOnly4x1WidgetProvider::class.java))
-            if (aemetIds.isNotEmpty()) {
-                val aemetIntent = Intent(this, AemetOnly4x1WidgetProvider::class.java).apply {
-                    action = AemetOnly4x1WidgetProvider.ACTION_REFRESH_AEMET_WIDGET
-                }
-                sendBroadcast(aemetIntent)
-            }
+            WeatherWidgetProvider.requestRefresh(this)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -957,13 +928,13 @@ class MainActivity : ComponentActivity() {
                 // Si la previsión por horas se va a descargar de nuevo, el widget también:
                 // así se actualizan siempre a la vez
                 if (!isHourlyCacheValid) {
-                    prefs.edit().putLong("last_fetch_time", 0L).apply()
+                    prefs.edit().putLong("last_fetch_time", 0L).commit()
                 }
 
                 // Avisamos a ambos widgets de forma segura
                 notifyWidgetsUpdate()
 
-                val city = prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia"
+                val city = prefs.getString("city", "") ?: ""
                 currentCityName = city
                 val code = prefs.getString("code", "11023") ?: "11023"
                 val lat = prefs.getFloat("lat", 36.4578f).toDouble()
@@ -2134,7 +2105,7 @@ class MainActivity : ComponentActivity() {
                     .putInt("outdoor_wind_red_max", newWindRedMax)
                     .putInt("outdoor_uv_opt_max", newUvOptMax)
                     .putInt("outdoor_uv_red_max", newUvRedMax)
-                    .apply()
+                    .commit()
 
                 android.widget.Toast.makeText(this, "Matriz de configuración guardada", android.widget.Toast.LENGTH_SHORT).show()
                 checkCacheAndLoadData(forceRefresh = true)

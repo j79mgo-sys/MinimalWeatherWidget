@@ -54,6 +54,9 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         scheduleAutoRefresh(context)
+        try {
+            WeatherWidgetWorker.schedulePeriodicWork(context)
+        } catch (_: Exception) {}
     }
 
     override fun onDisabled(context: Context) {
@@ -69,10 +72,10 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
                 .edit()
                 .putLong("last_fetch_time", 0L)
-                .apply()
+                .commit()
 
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, WeatherWidgetProvider::class.java))
+            val ids = manager.getAppWidgetIds(ComponentName(context, LightWeatherWidgetProvider::class.java))
             onUpdate(context, manager, ids)
         }
     }
@@ -83,6 +86,9 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         scheduleAutoRefresh(context)
+        try {
+            WeatherWidgetWorker.schedulePeriodicWork(context)
+        } catch (_: Exception) {}
 
         val pendingResult = goAsync()
 
@@ -228,17 +234,10 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     } catch (e: Exception) {
                     }
 
-                    val darkIds = appWidgetManager.getAppWidgetIds(
-                        ComponentName(context, WeatherWidgetProvider::class.java)
-                    )
-                    val lightIds = appWidgetManager.getAppWidgetIds(
+                    val lightIds = if (appWidgetIds.isNotEmpty()) appWidgetIds else appWidgetManager.getAppWidgetIds(
                         ComponentName(context, LightWeatherWidgetProvider::class.java)
                     )
 
-                    applyToWidgets(
-                        context, appWidgetManager, darkIds, R.layout.widget_weather,
-                        locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, multiDayWarnings
-                    )
                     applyToWidgets(
                         context, appWidgetManager, lightIds, R.layout.widget_weather_light,
                         locInfo.cityName, currentTemp, currentUv, anyGoodMoonPhoto, updateTimeStr, daysData, multiDayWarnings
@@ -273,7 +272,6 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         }
 
         val DEFAULT_RECENT_TOWNS = listOf(
-            KnownTown("Medina Sidonia", "11023", 36.4578, -5.9272),
             KnownTown("San Fernando", "11031", 36.4646, -6.1969),
             KnownTown("Cádiz", "11012", 36.5271, -6.2886),
             KnownTown("Chiclana de la Frontera", "11015", 36.4194, -6.1494),
@@ -285,11 +283,6 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
          * Se puede llamar desde la app (cambio de ubicación, al abrirla, etc.).
          */
         fun requestRefresh(context: Context) {
-            val darkIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
-                action = ACTION_REFRESH
-            }
-            context.sendBroadcast(darkIntent)
-
             val lightIntent = Intent(context, LightWeatherWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
             }
@@ -581,15 +574,13 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     ) {
         if (ids.isEmpty()) return
 
-        val isDark = (layoutRes == R.layout.widget_weather)
-        val rootBg = if (isDark) R.drawable.bg_widget else R.drawable.bg_widget_light
+        val rootBg = R.drawable.bg_widget_light
 
         ids.forEach { appWidgetId ->
             val views = RemoteViews(context.packageName, layoutRes)
             views.setInt(R.id.widgetRoot, "setBackgroundResource", rootBg)
 
             val serviceIntent = Intent(context, Weather7DaysWidgetService::class.java).apply {
-                putExtra("is_dark_theme", isDark)
                 data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
             }
             views.setRemoteAdapter(R.id.lvWidgetDays, serviceIntent)
@@ -605,28 +596,16 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             views.setPendingIntentTemplate(R.id.lvWidgetDays, openAppPendingIntent)
             views.setOnClickPendingIntent(R.id.widgetRoot, openAppPendingIntent)
 
-            // Al pulsar la hora del widget (tvUpdateTime) o la vista vacía se fuerza una descarga inmediata
-            val refreshIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
+            // Al pulsar la vista vacía se fuerza una descarga inmediata
+            val refreshIntent = Intent(context, LightWeatherWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
             }
             val refreshPendingIntent = PendingIntent.getBroadcast(
                 context, 0, refreshIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.tvUpdateTime, refreshPendingIntent)
             views.setEmptyView(R.id.lvWidgetDays, R.id.empty_view)
             views.setOnClickPendingIntent(R.id.empty_view, refreshPendingIntent)
-
-            // Ubicación actual + Temp actual + UV actual (si UV >= 3)
-            val uvHeaderStr = if (currentUv >= 3) "  UV$currentUv" else ""
-            views.setTextViewText(R.id.tvHeaderCityTemp, "📍 $cityName $currentTemp°$uvHeaderStr")
-
-            // Hora de actualización del widget
-            val timeColor = if (isDark) Color.parseColor("#A0AEC0") else Color.parseColor("#718096")
-            val displayTime = if (updateTimeStr == "--:--" || updateTimeStr.isEmpty()) "" else updateTimeStr
-
-            views.setTextViewText(R.id.tvUpdateTime, displayTime)
-            views.setTextColor(R.id.tvUpdateTime, timeColor)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
             appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
@@ -635,13 +614,12 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
 
     private fun hasAnyWidgets(context: Context): Boolean {
         val manager = AppWidgetManager.getInstance(context)
-        val darkIds = manager.getAppWidgetIds(ComponentName(context, WeatherWidgetProvider::class.java))
         val lightIds = manager.getAppWidgetIds(ComponentName(context, LightWeatherWidgetProvider::class.java))
-        return darkIds.isNotEmpty() || lightIds.isNotEmpty()
+        return lightIds.isNotEmpty()
     }
 
     private fun autoRefreshPendingIntent(context: Context): PendingIntent {
-        val intent = Intent(context, WeatherWidgetProvider::class.java).apply {
+        val intent = Intent(context, LightWeatherWidgetProvider::class.java).apply {
             action = ACTION_AUTO_REFRESH
         }
         return PendingIntent.getBroadcast(
@@ -699,10 +677,10 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     fun resolveLocationAndMunicipio(context: Context): LocationData {
         val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         val isManual = try { prefs.getBoolean("manual_location", false) } catch (_: Exception) { false }
-        val savedCode = try { prefs.getString("code", "11023") ?: "11023" } catch (_: Exception) { "11023" }
-        val savedCity = try { prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia" } catch (_: Exception) { "Medina Sidonia" }
-        val savedLat = safeGetDouble(prefs, "lat", 36.4578)
-        var savedLon = safeGetDouble(prefs, "lon", -5.9272)
+        val savedCode = try { prefs.getString("code", "") ?: "" } catch (_: Exception) { "" }
+        val savedCity = try { prefs.getString("city", "") ?: "" } catch (_: Exception) { "" }
+        val savedLat = safeGetDouble(prefs, "lat", 0.0)
+        var savedLon = safeGetDouble(prefs, "lon", 0.0)
         savedLon = fixLongitudeSignIfNeeded(savedCity, savedLat, savedLon)
 
         if (isManual) {

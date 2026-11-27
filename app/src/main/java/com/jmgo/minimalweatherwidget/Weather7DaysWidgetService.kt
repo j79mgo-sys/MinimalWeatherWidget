@@ -19,7 +19,6 @@ class Weather7DaysRemoteViewsFactory(
 ) : RemoteViewsService.RemoteViewsFactory {
 
     private var daysDataList: List<WeatherWidgetProvider.DayForecast> = emptyList()
-    private var isDarkTheme: Boolean = true
 
     override fun onCreate() {}
 
@@ -63,7 +62,6 @@ class Weather7DaysRemoteViewsFactory(
         }
 
         daysDataList = list
-        isDarkTheme = intent.getBooleanExtra("is_dark_theme", true)
 
         if (prefs.getLong("last_fetch_time", 0L) == 0L) {
             WeatherWidgetProvider.requestRefresh(context)
@@ -116,14 +114,11 @@ class Weather7DaysRemoteViewsFactory(
                 // Color día / fin de semana
                 val isWeekend = (d.dayName == "S" || d.dayName == "D")
                 if (isWeekend) {
-                    val bgRes = if (isDarkTheme) R.drawable.bg_weekend_dark else R.drawable.bg_weekend_light
-                    views.setInt(cardIds[col], "setBackgroundResource", bgRes)
-                    val dayColor = if (isDarkTheme) Color.parseColor("#ED8936") else Color.parseColor("#DD6B20")
-                    views.setTextColor(dayIds[col], dayColor)
+                    views.setInt(cardIds[col], "setBackgroundResource", R.drawable.bg_weekend_light)
+                    views.setTextColor(dayIds[col], Color.parseColor("#DD6B20"))
                 } else {
                     views.setInt(cardIds[col], "setBackgroundResource", 0)
-                    val dayColor = if (isDarkTheme) Color.parseColor("#FFD700") else Color.parseColor("#D69E2E")
-                    views.setTextColor(dayIds[col], dayColor)
+                    views.setTextColor(dayIds[col], Color.parseColor("#D69E2E"))
                 }
 
                 // Cámara lunar
@@ -139,11 +134,7 @@ class Weather7DaysRemoteViewsFactory(
                     views.setViewVisibility(windIds[col], View.VISIBLE)
                     val windSpeed = d.windSpeedVal
                     val isWindHigh = windSpeed >= 30
-                    val windColor = if (isWindHigh) {
-                        if (isDarkTheme) Color.parseColor("#FF453A") else Color.parseColor("#E53E3E")
-                    } else {
-                        if (isDarkTheme) Color.parseColor("#B0C4DE") else Color.parseColor("#4A5568")
-                    }
+                    val windColor = if (isWindHigh) Color.parseColor("#E53E3E") else Color.parseColor("#4A5568")
                     views.setTextViewText(windIds[col], WeatherWidgetProvider.sanitizeWidgetWind(d.windText))
                     views.setTextColor(windIds[col], windColor)
                 } else {
@@ -159,9 +150,9 @@ class Weather7DaysRemoteViewsFactory(
                     val minVal = minDisplay.toIntOrNull() ?: 99
 
                     val tempColor = when {
-                        maxVal >= 30 -> if (isDarkTheme) Color.parseColor("#FF453A") else Color.parseColor("#E53E3E")
-                        minVal <= 10 -> if (isDarkTheme) Color.parseColor("#63B3ED") else Color.parseColor("#3182CE")
-                        else -> if (isDarkTheme) Color.parseColor("#FFFFFF") else Color.parseColor("#1A202C")
+                        maxVal >= 30 -> Color.parseColor("#E53E3E")
+                        minVal <= 10 -> Color.parseColor("#3182CE")
+                        else -> Color.parseColor("#1A202C")
                     }
 
                     views.setTextViewText(tempIds[col], "$maxDisplay / $minDisplay")
@@ -171,7 +162,7 @@ class Weather7DaysRemoteViewsFactory(
                 // Lluvia y UV
                 val uvFormatted = if (showUv) WeatherWidgetProvider.formatUvRangeForWidget(d.uvStart, d.uvEnd) else ""
                 val rainDisplay = if (showRain) d.rainStr else ""
-                val uvIconColor = if (isDarkTheme) Color.parseColor("#ED8936") else Color.parseColor("#DD6B20")
+                val uvIconColor = Color.parseColor("#DD6B20")
 
                 views.setTextViewText(rainIds[col], rainDisplay)
                 views.setTextViewText(uvStartIds[col], uvFormatted)
@@ -184,11 +175,7 @@ class Weather7DaysRemoteViewsFactory(
                     views.setTextViewText(outdoorIds[col], d.outdoorBadge)
 
                     val count = d.outdoorBadge.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
-                    val sportsColor = if (count > 0) {
-                        if (isDarkTheme) Color.parseColor("#48BB78") else Color.parseColor("#2E7D32")
-                    } else {
-                        if (isDarkTheme) Color.parseColor("#A0AEC0") else Color.parseColor("#718096")
-                    }
+                    val sportsColor = if (count > 0) Color.parseColor("#2E7D32") else Color.parseColor("#718096")
                     views.setTextColor(outdoorIds[col], sportsColor)
                 } else {
                     views.setViewVisibility(outdoorIds[col], View.GONE)

@@ -24,7 +24,7 @@
             android:ellipsize="end"
             android:includeFontPadding="false"
             android:singleLine="true"
-            android:text="📍 Medina Sidonia 20°"
+            android:text=""
             android:textColor="#2B6CB0"
             android:textSize="14sp"
             android:textStyle="bold" />
