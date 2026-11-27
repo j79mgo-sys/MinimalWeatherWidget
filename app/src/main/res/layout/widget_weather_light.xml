@@ -10,6 +10,41 @@
     android:paddingTop="6dp"
     android:paddingBottom="6dp">
 
+    <!-- Cabecera Superior del Widget Blanco -->
+    <LinearLayout
+        android:id="@+id/llWidgetHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:id="@+id/tvWidgetHeaderLocation"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#1565C0"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:id="@+id/tvWidgetHeaderTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#1565C0"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:includeFontPadding="false" />
+    </LinearLayout>
+
     <!-- ListView que ocupa todo el espacio restante hasta el borde inferior (layout_height=0dp + weight=1) -->
     <ListView
         android:id="@+id/lvWidgetDays"

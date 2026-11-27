@@ -976,6 +976,20 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     stickyTimeView.text = "Act.: $updateTimeStr"
                     renderTimeline(city, filteredItemsList, sourceUsed, dailySummaries)
+
+                    // Actualizar SharedPreferences con las 3 claves de la cabecera y notificar al widget blanco
+                    val currentTemp = filteredItemsList.firstOrNull { !it.isAstroEvent }?.temp
+                        ?: prefs.getString("cached_temp", "") ?: ""
+                    val tempFormatted = if (currentTemp.isNotBlank() && currentTemp != "--") "${currentTemp.replace("°", "")}°" else ""
+                    val locationText = if (tempFormatted.isNotEmpty()) "📍 $city $tempFormatted" else "📍 $city"
+
+                    prefs.edit()
+                        .putString("WIDGET_HEADER_LOCATION_TEXT", locationText)
+                        .putString("WIDGET_HEADER_UPDATED_TIME", updateTimeStr)
+                        .putString("WIDGET_HEADER_CITY", city)
+                        .commit()
+
+                    WeatherWidgetProvider.updateWidgetHeaderDirectly(this@MainActivity)
                 }
             } finally {
                 isLoading = false

@@ -144,6 +144,12 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             editor.putBoolean("cached_moon_photo", anyGoodMoonPhoto)
                             editor.putBoolean("is_cache_fallback", false)
 
+                            val tempFormatted = if (currentTemp.isNotBlank() && currentTemp != "--") "${currentTemp.replace("°", "")}°" else ""
+                            val headerLoc = "📍 ${locInfo.cityName} $tempFormatted".trim()
+                            editor.putString("WIDGET_HEADER_LOCATION_TEXT", headerLoc)
+                            editor.putString("WIDGET_HEADER_UPDATED_TIME", updateTimeStr)
+                            editor.putString("WIDGET_HEADER_CITY", locInfo.cityName)
+
                             for (i in 0 until minOf(7, fetchedDays.size)) {
                                 val d = fetchedDays[i]
                                 editor.putString("c_day_$i", d.dayName)
@@ -289,6 +295,65 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             context.sendBroadcast(lightIntent)
 
             AemetOnly4x1WidgetProvider.requestRefresh(context)
+        }
+
+        /**
+         * Actualiza directamente la cabecera azul y la lista del widget blanco (LightWeatherWidgetProvider)
+         * utilizando las claves "WIDGET_HEADER_LOCATION_TEXT" y "WIDGET_HEADER_UPDATED_TIME" almacenadas en SharedPreferences.
+         */
+        @JvmStatic
+        fun updateWidgetHeaderDirectly(context: Context) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val componentName = ComponentName(context, LightWeatherWidgetProvider::class.java)
+            val lightIds = appWidgetManager.getAppWidgetIds(componentName)
+            if (lightIds.isEmpty()) return
+
+            val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+            val locationText = prefs.getString("WIDGET_HEADER_LOCATION_TEXT", "") ?: ""
+            val updateTime = prefs.getString("WIDGET_HEADER_UPDATED_TIME", "") ?: ""
+
+            val rootBg = R.drawable.bg_widget_light
+
+            lightIds.forEach { appWidgetId ->
+                val views = RemoteViews(context.packageName, R.layout.widget_weather_light)
+                views.setInt(R.id.widgetRoot, "setBackgroundResource", rootBg)
+
+                if (locationText.isNotEmpty()) {
+                    views.setTextViewText(R.id.tvWidgetHeaderLocation, locationText)
+                }
+                if (updateTime.isNotEmpty()) {
+                    views.setTextViewText(R.id.tvWidgetHeaderTime, updateTime)
+                }
+
+                val serviceIntent = Intent(context, Weather7DaysWidgetService::class.java).apply {
+                    data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                }
+                views.setRemoteAdapter(R.id.lvWidgetDays, serviceIntent)
+
+                val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra(EXTRA_REFRESH_FROM_WIDGET, true)
+                }
+                val openAppPendingIntent = PendingIntent.getActivity(
+                    context, 0, openAppIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setPendingIntentTemplate(R.id.lvWidgetDays, openAppPendingIntent)
+                views.setOnClickPendingIntent(R.id.widgetRoot, openAppPendingIntent)
+
+                val refreshIntent = Intent(context, LightWeatherWidgetProvider::class.java).apply {
+                    action = ACTION_REFRESH
+                }
+                val refreshPendingIntent = PendingIntent.getBroadcast(
+                    context, 0, refreshIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setEmptyView(R.id.lvWidgetDays, R.id.empty_view)
+                views.setOnClickPendingIntent(R.id.empty_view, refreshPendingIntent)
+
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
+            }
         }
 
         @JvmStatic
@@ -575,10 +640,18 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         if (ids.isEmpty()) return
 
         val rootBg = R.drawable.bg_widget_light
+        val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+        val tempFormatted = if (currentTemp.isNotBlank() && currentTemp != "--") "${currentTemp.replace("°", "")}°" else ""
+        val fallbackLoc = "📍 ${cityName.ifBlank { "San Fernando" }} $tempFormatted".trim()
+        val headerLocationText = prefs.getString("WIDGET_HEADER_LOCATION_TEXT", null) ?: fallbackLoc
+        val headerTimeText = prefs.getString("WIDGET_HEADER_UPDATED_TIME", null) ?: updateTimeStr
 
         ids.forEach { appWidgetId ->
             val views = RemoteViews(context.packageName, layoutRes)
             views.setInt(R.id.widgetRoot, "setBackgroundResource", rootBg)
+
+            views.setTextViewText(R.id.tvWidgetHeaderLocation, headerLocationText)
+            views.setTextViewText(R.id.tvWidgetHeaderTime, headerTimeText)
 
             val serviceIntent = Intent(context, Weather7DaysWidgetService::class.java).apply {
                 data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
