@@ -902,6 +902,7 @@ class MainActivity : ComponentActivity() {
     private fun notifyWidgetsUpdate() {
         try {
             WeatherWidgetProvider.requestRefresh(this)
+            CustomWeatherWidgetProvider.refreshWidget(this)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -990,6 +991,9 @@ class MainActivity : ComponentActivity() {
                         .commit()
 
                     WeatherWidgetProvider.updateWidgetHeaderDirectly(this@MainActivity)
+
+                    // Actualizamos también el snapshot JSON del nuevo Widget Personalizable
+                    saveCustomWidgetSnapshotAndRefresh(city, currentTemp, updateTimeStr, lat, lon)
                 }
             } finally {
                 isLoading = false
@@ -3315,6 +3319,250 @@ class MainActivity : ComponentActivity() {
         val uv: Int = 0,
         val itemDate: String = ""
     )
+
+    private fun saveCustomWidgetSnapshotAndRefresh(
+        city: String,
+        currentTemp: String,
+        updateTimeStr: String,
+        lat: Double,
+        lon: Double
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+                val tempFormatted = if (currentTemp.isNotBlank() && currentTemp != "--") "${currentTemp.replace("°", "")}°" else ""
+                val locationText = if (tempFormatted.isNotEmpty()) "📍 $city $tempFormatted" else "📍 $city"
+
+                val url = String.format(
+                    Locale.US,
+                    "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max,sunshine_duration&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,uv_index&timezone=auto&forecast_days=7",
+                    lat, lon
+                )
+
+                val resp = httpGetLocal(url)
+                val daysJsonArray = JSONArray()
+
+                if (resp != null) {
+                    val json = JSONObject(resp)
+                    val daily = json.optJSONObject("daily")
+                    val hourly = json.optJSONObject("hourly")
+
+                    if (daily != null) {
+                        val times = daily.getJSONArray("time")
+                        val codes = daily.getJSONArray("weather_code")
+                        val maxs = daily.getJSONArray("temperature_2m_max")
+                        val mins = daily.getJSONArray("temperature_2m_min")
+                        val appMaxs = daily.optJSONArray("apparent_temperature_max")
+                        val appMins = daily.optJSONArray("apparent_temperature_min")
+                        val rains = daily.getJSONArray("precipitation_sum")
+                        val pops = daily.optJSONArray("precipitation_probability_max")
+                        val windSpeeds = daily.getJSONArray("wind_speed_10m_max")
+                        val windGusts = daily.optJSONArray("wind_gusts_10m_max")
+                        val windDirs = daily.getJSONArray("wind_direction_10m_dominant")
+                        val uvs = daily.optJSONArray("uv_index_max")
+                        val sunshines = daily.optJSONArray("sunshine_duration")
+
+                        val hourlyTime = hourly?.optJSONArray("time")
+                        val hourlyUv = hourly?.optJSONArray("uv_index")
+                        val hourlyTemps = hourly?.optJSONArray("temperature_2m")
+                        val hourlyRains = hourly?.optJSONArray("precipitation")
+                        val hourlyWinds = hourly?.optJSONArray("wind_speed_10m")
+                        val hourlyHumidity = hourly?.optJSONArray("relative_humidity_2m")
+
+                        val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
+                        val nowDate = LocalDate.now()
+                        val nowHour = LocalTime.now().hour
+
+                        val optMinT = prefs.getInt("outdoor_temp_opt_min", 10)
+                        val optMaxT = prefs.getInt("outdoor_temp_opt_max", 24)
+                        val rainOptMax = (prefs.getFloat("outdoor_rain_opt_max", 0.0f)).toDouble()
+                        val windOptMax = prefs.getInt("outdoor_wind_opt_max", 25)
+                        val uvOptMax = prefs.getInt("outdoor_uv_opt_max", 5)
+
+                        for (idx in 0 until minOf(7, times.length())) {
+                            val targetDate = nowDate.plusDays(idx.toLong())
+                            val fechaStr = targetDate.toString()
+                            val dayName = diasSemana[targetDate.dayOfWeek.value % 7]
+
+                            val codeVal = codes.optInt(idx, 0)
+                            val icon = wmoCodeToEmojiLocal(codeVal)
+                            val maxT = maxs.optDouble(idx, 0.0).roundToInt().toString()
+                            val minT = mins.optDouble(idx, 0.0).roundToInt().toString()
+                            val appMax = appMaxs?.optDouble(idx, 0.0)?.roundToInt()?.toString() ?: maxT
+                            val appMin = appMins?.optDouble(idx, 0.0)?.roundToInt()?.toString() ?: minT
+
+                            val rainMm = rains.optDouble(idx, 0.0)
+                            val rainStr = if (rainMm.roundToInt() > 0) "💧${rainMm.roundToInt()}" else ""
+                            val popVal = pops?.optInt(idx, 0) ?: 0
+                            val maxPop = if (popVal > 0) "☔ $popVal%" else ""
+
+                            val wSpeed = windSpeeds.optDouble(idx, 0.0).roundToInt()
+                            val wGust = if (windGusts != null && !windGusts.optDouble(idx, 0.0).isNaN()) windGusts.optDouble(idx, 0.0).roundToInt() else wSpeed
+                            val wDeg = windDirs.optInt(idx, 0)
+                            val windText = if (wGust > wSpeed && wGust > 0) "${degreesToArrowLocal(wDeg)} $wSpeed ($wGust)" else "${degreesToArrowLocal(wDeg)} $wSpeed"
+
+                            val uvMax = if (uvs != null && !uvs.optDouble(idx, 0.0).isNaN()) uvs.optDouble(idx, 0.0).roundToInt() else 0
+
+                            var uvStart = ""
+                            var uvEnd = ""
+                            if (hourlyTime != null && hourlyUv != null) {
+                                var firstH = -1
+                                var lastH = -1
+                                val minH = if (idx == 0) nowHour else 0
+                                for (k in 0 until minOf(hourlyTime.length(), hourlyUv.length())) {
+                                    val tStr = hourlyTime.optString(k, "")
+                                    if (tStr.startsWith(fechaStr)) {
+                                        val h = if (tStr.length >= 13) tStr.substring(11, 13).toIntOrNull() ?: 0 else 0
+                                        if (h >= minH) {
+                                            val uvVal = hourlyUv.optDouble(k, 0.0)
+                                            if (uvVal >= 2.95) {
+                                                if (firstH == -1) firstH = h
+                                                lastH = h
+                                            }
+                                        }
+                                    }
+                                }
+                                if (firstH != -1 && lastH != -1) {
+                                    uvStart = "$firstH"
+                                    uvEnd = "${lastH + 1}"
+                                }
+                            }
+                            val uvRange = if (uvStart.isNotBlank() && uvEnd.isNotBlank()) "$uvStart-$uvEnd" else if (uvMax > 0) "$uvMax" else ""
+
+                            val sunshineSecs = sunshines?.optDouble(idx, 0.0) ?: 0.0
+                            val sunshineVal = (sunshineSecs / 3600.0 * 10).roundToInt() / 10.0
+                            val sunshineHours = if (sunshineVal > 0) "☀️ ${sunshineVal}h" else ""
+
+                            var humSum = 0
+                            var humCount = 0
+                            if (hourlyTime != null && hourlyHumidity != null) {
+                                for (k in 0 until minOf(hourlyTime.length(), hourlyHumidity.length())) {
+                                    val tStr = hourlyTime.optString(k, "")
+                                    if (tStr.startsWith(fechaStr)) {
+                                        val hVal = hourlyHumidity.optInt(k, -1)
+                                        if (hVal >= 0) {
+                                            humSum += hVal
+                                            humCount++
+                                        }
+                                    }
+                                }
+                            }
+                            val humidityVal = if (humCount > 0) humSum / humCount else 0
+                            val avgHumidity = if (humidityVal > 0) "💧 $humidityVal%" else ""
+
+                            var greenCount = 0
+                            val sunData = MainActivityHelper.calculateSunTimesStatic(targetDate, lat, lon)
+                            val startH = if (idx == 0) maxOf(sunData.sunriseHour, nowHour) else sunData.sunriseHour
+                            if (hourlyTime != null && hourlyTemps != null) {
+                                for (k in 0 until minOf(hourlyTime.length(), hourlyTemps.length())) {
+                                    val tStr = hourlyTime.optString(k, "")
+                                    if (tStr.startsWith(fechaStr)) {
+                                        val h = if (tStr.length >= 13) tStr.substring(11, 13).toIntOrNull() ?: 0 else 0
+                                        if (h in startH..sunData.sunsetHour) {
+                                            val t = hourlyTemps.optDouble(k, 20.0)
+                                            val r = hourlyRains?.optDouble(k, 0.0) ?: 0.0
+                                            val w = hourlyWinds?.optDouble(k, 10.0) ?: 10.0
+                                            val uv = hourlyUv?.optDouble(k, 0.0) ?: 0.0
+                                            if (t in optMinT.toDouble()..optMaxT.toDouble() && r <= rainOptMax && w <= windOptMax && uv <= uvOptMax) {
+                                                greenCount++
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            val sportHours = "🏃 $greenCount h"
+
+                            val moonData = MainActivityHelper.calculateAccurateMoonData(targetDate, lat, lon)
+                            val diffRise = if (moonData.riseTotalMins >= 0) kotlin.math.abs(sunData.sunsetTotalMins - moonData.riseTotalMins) else 999
+                            val diffSet = if (moonData.setTotalMins >= 0) kotlin.math.abs(moonData.setTotalMins - sunData.sunriseTotalMins) else 999
+                            val rawGoodMoon = diffRise <= 90 || diffSet <= 90
+                            val isGoodMoon = if (idx == 0 && rawGoodMoon) {
+                                val nowMins = nowHour * 60 + LocalTime.now().minute
+                                (diffRise <= 90 && moonData.riseTotalMins >= nowMins) || (diffSet <= 90 && moonData.setTotalMins >= nowMins)
+                            } else rawGoodMoon
+
+                            val dayObj = JSONObject().apply {
+                                put("dayName", dayName)
+                                put("icon", icon)
+                                put("windText", windText)
+                                put("windSpeedVal", wSpeed)
+                                put("maxTemp", maxT)
+                                put("minTemp", minT)
+                                put("rainStr", rainStr)
+                                put("rainMm", rainMm)
+                                put("uvMax", uvMax)
+                                put("uvStart", uvStart)
+                                put("uvEnd", uvEnd)
+                                put("uvRange", uvRange)
+                                put("sportHours", sportHours)
+                                put("apparentMaxTemp", appMax)
+                                put("apparentMinTemp", appMin)
+                                put("apparentTempStr", "🌡️ $appMax°/$appMin°")
+                                put("maxPop", maxPop)
+                                put("popVal", popVal)
+                                put("sunshineHours", sunshineHours)
+                                put("sunshineVal", sunshineVal)
+                                put("avgHumidity", avgHumidity)
+                                put("humidityVal", humidityVal)
+                                put("hasGoodMoonPhoto", isGoodMoon)
+                            }
+                            daysJsonArray.put(dayObj)
+                        }
+                    }
+                }
+
+                val rootJson = JSONObject().apply {
+                    put("locationText", locationText)
+                    put("city", city)
+                    put("currentTemp", currentTemp)
+                    put("updateTime", updateTimeStr)
+                    put("days", daysJsonArray)
+                }
+
+                prefs.edit().putString(CustomWeatherWidgetProvider.KEY_CUSTOM_WIDGET_DATA, rootJson.toString()).commit()
+                CustomWeatherWidgetProvider.refreshWidget(this@MainActivity)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun degreesToArrowLocal(deg: Int): String = when (((deg + 22) % 360) / 45) {
+        0 -> "↓"
+        1 -> "↙"
+        2 -> "←"
+        3 -> "↖"
+        4 -> "↑"
+        5 -> "↗"
+        6 -> "→"
+        7 -> "↘"
+        else -> "•"
+    }
+
+    private fun wmoCodeToEmojiLocal(code: Int): String = when (code) {
+        0 -> "☀️"
+        1, 2 -> "⛅"
+        3, 45, 48 -> "☁️"
+        in 51..67, in 80..82 -> "🌧️"
+        in 71..77 -> "❄️"
+        in 95..99 -> "⛈️"
+        else -> "⛅"
+    }
+
+    private fun httpGetLocal(urlStr: String): String? {
+        return try {
+            val conn = (java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 7000
+                readTimeout = 7000
+                setRequestProperty("Accept", "application/json")
+            }
+            if (conn.responseCode != 200) null
+            else conn.inputStream.bufferedReader(java.nio.charset.Charset.forName("UTF-8")).use { it.readText() }
+        } catch (_: Exception) {
+            null
+        }
+    }
 }
 
 object MainActivityHelper {

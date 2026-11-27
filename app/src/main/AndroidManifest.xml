@@ -53,6 +53,28 @@
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
 
+        <!-- Proveedor del Widget Personalizable -->
+        <receiver
+            android:name=".CustomWeatherWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.jmgo.minimalweatherwidget.ACTION_REFRESH_CUSTOM_WIDGET" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_custom_info" />
+        </receiver>
+
+        <!-- Servicio RemoteViews para el ListView de 7 Días del Widget Personalizable -->
+        <service
+            android:name=".CustomWeatherWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
         <!-- FileProvider obligatorio para compartir la imagen de la captura de pantalla -->
         <provider
             android:name="androidx.core.content.FileProvider"
