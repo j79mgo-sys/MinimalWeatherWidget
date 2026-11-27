@@ -117,7 +117,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                     if (!isCacheValid) {
                         updateTimeStr = java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
 
-                        val openMeteoData = fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon, context = context)
+                        val openMeteoData = fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon, days = 7, context = context)
                         val fetchedDays = openMeteoData.second
                         val fetchedCurrentTemp = openMeteoData.first
                         currentUv = openMeteoData.third
@@ -138,7 +138,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                             editor.putBoolean("cached_moon_photo", anyGoodMoonPhoto)
                             editor.putBoolean("is_cache_fallback", false)
 
-                            for (i in 0 until minOf(4, fetchedDays.size)) {
+                            for (i in 0 until minOf(7, fetchedDays.size)) {
                                 val d = fetchedDays[i]
                                 editor.putString("c_day_$i", d.dayName)
                                 editor.putString("c_icon_$i", d.icon)
@@ -164,7 +164,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                         currentUv = prefs.getInt("cached_current_uv", 0)
                         updateTimeStr = prefs.getString("cached_widget_update_time", "--:--") ?: "--:--"
 
-                        for (i in 0 until 4) {
+                        for (i in 0 until 7) {
                             val targetDate = nowDate.plusDays(i.toLong())
                             val expectedDayName = diasSemana[targetDate.dayOfWeek.value % 7]
                             val savedTemp = prefs.getString("c_temp_$i", "") ?: ""
@@ -261,7 +261,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         // Extra que se añade al abrir la app desde el widget
         const val EXTRA_REFRESH_FROM_WIDGET = "refresh_from_widget"
 
-        private const val CACHE_VERSION = 24
+        private const val CACHE_VERSION = 25
         // 29 minutos para que la alarma de 30 minutos siempre encuentre la caché caducada
         private const val CACHE_MILLIS = 29 * 60 * 1000L
         // Evita que el widget oscuro y el claro descarguen datos a la vez
@@ -285,12 +285,25 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
          * Se puede llamar desde la app (cambio de ubicación, al abrirla, etc.).
          */
         fun requestRefresh(context: Context) {
-            val intent = Intent(context, WeatherWidgetProvider::class.java).apply {
+            val darkIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
             }
-            context.sendBroadcast(intent)
+            context.sendBroadcast(darkIntent)
+
+            val lightIntent = Intent(context, LightWeatherWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+            }
+            context.sendBroadcast(lightIntent)
 
             AemetOnly4x1WidgetProvider.requestRefresh(context)
+        }
+
+        @JvmStatic
+        fun fixLongitudeSignIfNeeded(cityName: String, lat: Double, lon: Double): Double {
+            if (lat in 35.0..44.0 && lon > 0.0) {
+                return -abs(lon)
+            }
+            return lon
         }
 
         fun getRecentTowns(context: Context): MutableList<KnownTown> {
@@ -304,12 +317,16 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 val list = mutableListOf<KnownTown>()
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
+                    val tName = o.getString("name")
+                    val tLat = o.getDouble("lat")
+                    val rawLon = o.getDouble("lon")
+                    val fixedLon = fixLongitudeSignIfNeeded(tName, tLat, rawLon)
                     list.add(
                         KnownTown(
-                            name = o.getString("name"),
+                            name = tName,
                             code = o.optString("code", ""),
-                            lat = o.getDouble("lat"),
-                            lon = o.getDouble("lon")
+                            lat = tLat,
+                            lon = fixedLon
                         )
                     )
                 }
@@ -588,7 +605,7 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             views.setPendingIntentTemplate(R.id.lvWidgetDays, openAppPendingIntent)
             views.setOnClickPendingIntent(R.id.widgetRoot, openAppPendingIntent)
 
-            // Al pulsar la hora del widget (tvUpdateTime) se fuerza una descarga inmediata
+            // Al pulsar la hora del widget (tvUpdateTime) o la vista vacía se fuerza una descarga inmediata
             val refreshIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
                 action = ACTION_REFRESH
             }
@@ -597,6 +614,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.tvUpdateTime, refreshPendingIntent)
+            views.setEmptyView(R.id.lvWidgetDays, R.id.empty_view)
+            views.setOnClickPendingIntent(R.id.empty_view, refreshPendingIntent)
 
             // Ubicación actual + Temp actual + UV actual (si UV >= 3)
             val uvHeaderStr = if (currentUv >= 3) "  UV$currentUv" else ""
@@ -609,8 +628,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.tvUpdateTime, displayTime)
             views.setTextColor(R.id.tvUpdateTime, timeColor)
 
-            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
             appWidgetManager.updateAppWidget(appWidgetId, views)
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.lvWidgetDays)
         }
     }
 
@@ -683,7 +702,8 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
         val savedCode = try { prefs.getString("code", "11023") ?: "11023" } catch (_: Exception) { "11023" }
         val savedCity = try { prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia" } catch (_: Exception) { "Medina Sidonia" }
         val savedLat = safeGetDouble(prefs, "lat", 36.4578)
-        val savedLon = safeGetDouble(prefs, "lon", -5.9272)
+        var savedLon = safeGetDouble(prefs, "lon", -5.9272)
+        savedLon = fixLongitudeSignIfNeeded(savedCity, savedLat, savedLon)
 
         if (isManual) {
             return LocationData(savedLat, savedLon, savedCity, savedCode)
@@ -771,14 +791,14 @@ open class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     @JvmStatic
-    fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 4, context: Context? = null): Triple<String?, List<DayForecast>, Int> {
+    fun fetchOpenMeteoFallbackAndCurrent(lat: Double, lon: Double, days: Int = 7, context: Context? = null): Triple<String?, List<DayForecast>, Int> {
         val prefs = context?.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
         return try {
-            val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
-                    "&current=temperature_2m,uv_index" +
-                    "&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max" +
-                    "&hourly=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,uv_index" +
-                    "&timezone=Europe%2FMadrid&forecast_days=${days + 2}"
+            val url = String.format(
+                Locale.US,
+                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max&hourly=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,uv_index&timezone=auto&forecast_days=%d",
+                lat, lon, days + 2
+            )
             val resp = httpGet(url, Charset.forName("UTF-8")) ?: return Triple(null, emptyList(), 0)
             val json = JSONObject(resp)
 

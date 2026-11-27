@@ -2,17 +2,19 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rowRootContainer"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
+    android:minHeight="130dp"
     android:orientation="horizontal"
     android:paddingTop="2dp"
-    android:paddingBottom="4dp"
+    android:paddingBottom="2dp"
     android:weightSum="4">
 
     <!-- COLUMNA 0 DE LA FILA -->
     <LinearLayout
         android:id="@+id/card0"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:minHeight="130dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
@@ -39,7 +41,7 @@
                     android:includeFontPadding="false"
                     android:text="L"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -58,7 +60,7 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="☀️"
-                android:textSize="22sp" />
+                android:textSize="26sp" />
         </LinearLayout>
 
         <!-- Viento -->
@@ -66,24 +68,24 @@
             android:id="@+id/wind0"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="↗ 15"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
 
         <!-- Temperaturas -->
         <TextView
             android:id="@+id/temp0"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="21 / 7"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <!-- Lluvia + UV -->
@@ -91,7 +93,7 @@
             android:id="@+id/rainUvContainer0"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -122,7 +124,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -133,23 +135,23 @@
                     android:singleLine="true"
                     android:text="2-3"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Luz Útil -->
+        <!-- Luz Útil / Deporte (Restauralo visible y legible) -->
         <TextView
             android:id="@+id/outdoor0"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="🏃 5 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -157,7 +159,8 @@
     <LinearLayout
         android:id="@+id/card1"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:minHeight="130dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
@@ -183,7 +186,7 @@
                     android:includeFontPadding="false"
                     android:text="M"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -202,37 +205,37 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="⛅"
-                android:textSize="22sp" />
+                android:textSize="26sp" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/wind1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="↗ 20"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/temp1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="20 / 8"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <LinearLayout
             android:id="@+id/rainUvContainer1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -263,7 +266,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -274,7 +277,7 @@
                     android:singleLine="true"
                     android:text="1-3"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -283,13 +286,13 @@
             android:id="@+id/outdoor1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="🏃 8 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -297,7 +300,8 @@
     <LinearLayout
         android:id="@+id/card2"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:minHeight="130dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
@@ -323,7 +327,7 @@
                     android:includeFontPadding="false"
                     android:text="X"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -342,37 +346,37 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="🌧️"
-                android:textSize="22sp" />
+                android:textSize="26sp" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/wind2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="↙ 25"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/temp2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="18 / 9"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <LinearLayout
             android:id="@+id/rainUvContainer2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -403,7 +407,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -414,7 +418,7 @@
                     android:singleLine="true"
                     android:text="2"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -423,13 +427,13 @@
             android:id="@+id/outdoor2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="🏃 2 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -438,6 +442,7 @@
         android:id="@+id/card3"
         android:layout_width="0dp"
         android:layout_height="match_parent"
+        android:minHeight="130dp"
         android:layout_weight="1"
         android:gravity="center_horizontal"
         android:orientation="vertical"
@@ -463,7 +468,7 @@
                     android:includeFontPadding="false"
                     android:text="J"
                     android:textColor="#D69E2E"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -482,37 +487,37 @@
                 android:layout_marginStart="2dp"
                 android:includeFontPadding="false"
                 android:text="☀️"
-                android:textSize="22sp" />
+                android:textSize="26sp" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/wind3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="↖ 12"
             android:textColor="#4A5568"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/temp3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="22 / 10"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <LinearLayout
             android:id="@+id/rainUvContainer3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -543,7 +548,7 @@
                     android:singleLine="true"
                     android:text="UV"
                     android:textColor="#DD6B20"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -554,7 +559,7 @@
                     android:singleLine="true"
                     android:text="1-4"
                     android:textColor="#E53E3E"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -563,13 +568,13 @@
             android:id="@+id/outdoor3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:gravity="center"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:text="🏃 6 h"
             android:textColor="#1A202C"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

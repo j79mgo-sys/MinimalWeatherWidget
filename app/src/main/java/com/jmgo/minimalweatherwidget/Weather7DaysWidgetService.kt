@@ -25,11 +25,49 @@ class Weather7DaysRemoteViewsFactory(
 
     override fun onDataSetChanged() {
         val prefs = context.getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-        val locInfo = WeatherWidgetProvider.resolveLocationAndMunicipio(context)
+        val list = mutableListOf<WeatherWidgetProvider.DayForecast>()
+        val nowDate = java.time.LocalDate.now()
+        val diasSemana = listOf("D", "L", "M", "X", "J", "V", "S")
 
-        val openMeteoData = WeatherWidgetProvider.fetchOpenMeteoFallbackAndCurrent(locInfo.lat, locInfo.lon, days = 7, context = context)
-        daysDataList = openMeteoData.second
+        for (i in 0 until 7) {
+            val targetDate = nowDate.plusDays(i.toLong())
+            val expectedDayName = diasSemana[targetDate.dayOfWeek.value % 7]
+            val savedTemp = prefs.getString("c_temp_$i", "") ?: ""
+            val parts = savedTemp.split("/")
+            val maxT = parts.getOrNull(0)?.trim() ?: ""
+            val minT = parts.getOrNull(1)?.trim() ?: ""
+            val rawWind = prefs.getString("c_wind_$i", "") ?: ""
+            val savedWindSpeed = prefs.getInt("c_wind_speed_$i", 0)
+            val savedMoonPhoto = prefs.getBoolean("c_moon_$i", false)
+            val savedRain = prefs.getString("c_rain_$i", "") ?: ""
+            val savedUv = prefs.getInt("c_uv_$i", 0)
+            val savedOutdoor = prefs.getString("c_outdoor_$i", null)
+                ?: WeatherWidgetProvider.calculateDayOutdoorBadge(prefs, maxT, minT, savedWindSpeed, savedRain, savedUv)
+
+            list.add(
+                WeatherWidgetProvider.DayForecast(
+                    dayName = expectedDayName,
+                    icon = prefs.getString("c_icon_$i", "⛅") ?: "⛅",
+                    windText = WeatherWidgetProvider.sanitizeWidgetWind(rawWind),
+                    windSpeedVal = savedWindSpeed,
+                    maxTemp = if (maxT.isNotEmpty()) maxT else "--",
+                    minTemp = if (minT.isNotEmpty()) minT else "--",
+                    rainStr = savedRain,
+                    hasGoodMoonPhoto = savedMoonPhoto,
+                    uvMax = savedUv,
+                    uvStart = prefs.getString("c_uv_start_$i", "") ?: "",
+                    uvEnd = prefs.getString("c_uv_end_$i", "") ?: "",
+                    outdoorBadge = savedOutdoor
+                )
+            )
+        }
+
+        daysDataList = list
         isDarkTheme = intent.getBooleanExtra("is_dark_theme", true)
+
+        if (prefs.getLong("last_fetch_time", 0L) == 0L) {
+            WeatherWidgetProvider.requestRefresh(context)
+        }
     }
 
     override fun onDestroy() {

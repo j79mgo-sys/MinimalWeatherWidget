@@ -329,12 +329,44 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        checkAndMigrateLongitudeSign()
         // Al volver a la app, solo recarga si los datos tienen más de 30 minutos
         if (permissionFlowDone) {
             checkCacheAndLoadData(forceRefresh = false)
         }
         refreshHandler.removeCallbacks(autoRefreshRunnable)
         refreshHandler.postDelayed(autoRefreshRunnable, AUTO_REFRESH_INTERVAL_MS)
+    }
+
+    private fun checkAndMigrateLongitudeSign() {
+        try {
+            val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+            val city = prefs.getString("city", "Medina Sidonia") ?: "Medina Sidonia"
+            val lat = prefs.getFloat("lat", 36.4578f).toDouble()
+            var lon = prefs.getFloat("lon", -5.9272f).toDouble()
+
+            if (city.equals("San Fernando", ignoreCase = true) && (lat !in 36.4..36.55 || lon !in -6.3..-6.0)) {
+                prefs.edit()
+                    .putString("city", "San Fernando")
+                    .putString("cached_widget_city", "San Fernando")
+                    .putString("code", "11031")
+                    .putFloat("lat", 36.4646f)
+                    .putFloat("lon", -6.1969f)
+                    .putLong("last_fetch_time", 0L)
+                    .putLong("last_hourly_fetch_time", 0L)
+                    .apply()
+                return
+            }
+
+            if (lat in 35.0..44.0 && lon > 0.0) {
+                lon = WeatherWidgetProvider.fixLongitudeSignIfNeeded(city, lat, lon)
+                prefs.edit()
+                    .putFloat("lon", lon.toFloat())
+                    .putLong("last_fetch_time", 0L)
+                    .putLong("last_hourly_fetch_time", 0L)
+                    .apply()
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onPause() {
@@ -477,15 +509,19 @@ class MainActivity : ComponentActivity() {
                     else -> {
                         if (favoriteTowns.isNotEmpty()) {
                             val town = favoriteTowns[which - 2]
+                            val fixedLon = WeatherWidgetProvider.fixLongitudeSignIfNeeded(town.name, town.lat, town.lon)
                             prefs.edit()
                                 .putBoolean("manual_location", true)
                                 .putString("city", town.name)
+                                .putString("cached_widget_city", town.name)
                                 .putString("code", town.code)
                                 .putFloat("lat", town.lat.toFloat())
-                                .putFloat("lon", town.lon.toFloat())
+                                .putFloat("lon", fixedLon.toFloat())
                                 .putLong("last_fetch_time", 0L)
                                 .putLong("last_hourly_fetch_time", 0L)
                                 .apply()
+
+                            WeatherWidgetProvider.requestRefresh(this@MainActivity)
                             checkCacheAndLoadData(forceRefresh = true)
                         }
                     }
@@ -590,6 +626,15 @@ class MainActivity : ComponentActivity() {
                 settings.useWideViewPort = true
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
+                settings.setGeolocationEnabled(true)
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(
+                        origin: String,
+                        callback: android.webkit.GeolocationPermissions.Callback
+                    ) {
+                        callback.invoke(origin, true, false)
+                    }
+                }
                 webViewClient = android.webkit.WebViewClient()
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -782,42 +827,74 @@ class MainActivity : ComponentActivity() {
 
     private fun searchAndSelectTown(query: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            val code = WeatherWidgetProvider.findAemetMunicipioCode(this@MainActivity, query)
-            var lat = 36.4194
-            var lon = -6.1494
-            var resolvedName = query.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
-
             try {
-                val geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name=${java.net.URLEncoder.encode(query, "UTF-8")}&count=1&language=es&format=json"
-                val resp = httpGet(geoUrl, Charset.forName("UTF-8"))
-                if (resp != null) {
-                    val json = JSONObject(resp)
-                    val results = json.optJSONArray("results")
-                    if (results != null && results.length() > 0) {
-                        val r = results.getJSONObject(0)
-                        lat = r.optDouble("latitude", lat)
-                        lon = r.optDouble("longitude", lon)
-                        resolvedName = r.optString("name", resolvedName)
+                var code = WeatherWidgetProvider.findAemetMunicipioCode(this@MainActivity, query)
+                var lat = 36.4194
+                var lon = -6.1494
+                var resolvedName = query.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+
+                if (query.equals("San Fernando", ignoreCase = true) || query.lowercase().trim() == "san fernando") {
+                    resolvedName = "San Fernando"
+                    code = "11031"
+                    lat = 36.4646
+                    lon = -6.1969
+                } else {
+                    val geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name=${java.net.URLEncoder.encode(query, "UTF-8")}&count=10&language=es&format=json"
+                    val resp = httpGet(geoUrl, Charset.forName("UTF-8"))
+                    if (resp != null) {
+                        val json = JSONObject(resp)
+                        val results = json.optJSONArray("results")
+                        if (results != null && results.length() > 0) {
+                            var bestMatch: JSONObject? = null
+                            for (i in 0 until results.length()) {
+                                val item = results.getJSONObject(i)
+                                val countryCode = item.optString("country_code", "")
+                                val admin1 = item.optString("admin1", "")
+                                val admin2 = item.optString("admin2", "")
+
+                                if (countryCode.equals("ES", ignoreCase = true)) {
+                                    if (bestMatch == null) bestMatch = item
+                                    if (admin1.contains("Andalucía", ignoreCase = true) || admin2.contains("Cádiz", ignoreCase = true)) {
+                                        bestMatch = item
+                                        break
+                                    }
+                                }
+                            }
+
+                            val r = bestMatch ?: results.getJSONObject(0)
+                            lat = r.optDouble("latitude", lat)
+                            val rawLon = r.optDouble("longitude", lon)
+                            lon = WeatherWidgetProvider.fixLongitudeSignIfNeeded(resolvedName, lat, rawLon)
+                            resolvedName = r.optString("name", resolvedName)
+                        }
                     }
                 }
-            } catch (_: Exception) {}
 
-            withContext(Dispatchers.Main) {
-                val newTown = WeatherWidgetProvider.KnownTown(resolvedName, code, lat, lon)
-                WeatherWidgetProvider.saveRecentTown(this@MainActivity, newTown)
+                withContext(Dispatchers.Main) {
+                    try {
+                        val newTown = WeatherWidgetProvider.KnownTown(resolvedName, code, lat, lon)
+                        WeatherWidgetProvider.saveRecentTown(this@MainActivity, newTown)
 
-                val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
-                prefs.edit()
-                    .putBoolean("manual_location", true)
-                    .putString("city", resolvedName)
-                    .putString("code", code)
-                    .putFloat("lat", lat.toFloat())
-                    .putFloat("lon", lon.toFloat())
-                    .putLong("last_fetch_time", 0L)
-                    .putLong("last_hourly_fetch_time", 0L)
-                    .apply()
+                        val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean("manual_location", true)
+                            .putString("city", resolvedName)
+                            .putString("cached_widget_city", resolvedName)
+                            .putString("code", if (code.isNotBlank()) code else "11023")
+                            .putFloat("lat", lat.toFloat())
+                            .putFloat("lon", lon.toFloat())
+                            .putLong("last_fetch_time", 0L)
+                            .putLong("last_hourly_fetch_time", 0L)
+                            .apply()
 
-                checkCacheAndLoadData(forceRefresh = true)
+                        WeatherWidgetProvider.requestRefresh(this@MainActivity)
+                        checkCacheAndLoadData(forceRefresh = true)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -1688,7 +1765,15 @@ class MainActivity : ComponentActivity() {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
-                webChromeClient = android.webkit.WebChromeClient()
+                settings.setGeolocationEnabled(true)
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(
+                        origin: String,
+                        callback: android.webkit.GeolocationPermissions.Callback
+                    ) {
+                        callback.invoke(origin, true, false)
+                    }
+                }
                 webViewClient = android.webkit.WebViewClient()
                 loadUrl(publicUrl)
             }
@@ -2321,71 +2406,76 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun createProvinceReservoirsCard(city: String): View {
-        val provData = findProvinceDataForCity(city) ?: return View(this)
+        return try {
+            val provData = findProvinceDataForCity(city) ?: return View(this)
 
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        for (res in provData.reservoirs) {
-            val itemLayout = LinearLayout(this).apply {
+            val container = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(0, dp(4), 0, dp(6))
             }
 
-            val tvResTitle = TextView(this).apply {
-                text = "• ${res.name}: ${res.storedHm3} hm³ (${res.percentage}%)"
-                textSize = 13.5f
-                setTextColor(Color.parseColor("#2D3748"))
-                typeface = Typeface.DEFAULT_BOLD
-            }
-
-            val tvResStatus = TextView(this).apply {
-                text = "${res.status} (Capacidad: ${res.capacityHm3} hm³)"
-                textSize = 12.5f
-                setTextColor(Color.parseColor("#4A5568"))
-                setPadding(dp(10), 0, 0, dp(4))
-            }
-
-            val barBackground = GradientDrawable().apply {
-                setColor(Color.parseColor("#CBD5E0"))
-                cornerRadius = dp(4).toFloat()
-            }
-            val barContainer = FrameLayout(this).apply {
-                background = barBackground
-                val lpBar = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(8)
-                ).apply {
-                    setMargins(dp(10), 0, 0, 0)
+            for (res in provData.reservoirs) {
+                val itemLayout = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, dp(4), 0, dp(6))
                 }
-                layoutParams = lpBar
-            }
 
-            val progressWidthPx = maxOf(dp(4), (dp(240) * (res.percentage / 100.0)).toInt())
-            val barProgress = View(this).apply {
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#3182CE"))
+                val tvResTitle = TextView(this).apply {
+                    text = "• ${res.name}: ${res.storedHm3} hm³ (${res.percentage}%)"
+                    textSize = 13.5f
+                    setTextColor(Color.parseColor("#2D3748"))
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+
+                val tvResStatus = TextView(this).apply {
+                    text = "${res.status} (Capacidad: ${res.capacityHm3} hm³)"
+                    textSize = 12.5f
+                    setTextColor(Color.parseColor("#4A5568"))
+                    setPadding(dp(10), 0, 0, dp(4))
+                }
+
+                val barBackground = GradientDrawable().apply {
+                    setColor(Color.parseColor("#CBD5E0"))
                     cornerRadius = dp(4).toFloat()
                 }
-                layoutParams = FrameLayout.LayoutParams(
-                    progressWidthPx,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
+                val barContainer = FrameLayout(this).apply {
+                    background = barBackground
+                    val lpBar = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dp(8)
+                    ).apply {
+                        setMargins(dp(10), 0, 0, 0)
+                    }
+                    layoutParams = lpBar
+                }
+
+                val safePct = res.percentage.toDouble().coerceIn(0.0, 100.0)
+                val progressWidthPx = maxOf(dp(4), (dp(240) * (safePct / 100.0)).toInt())
+                val barProgress = View(this).apply {
+                    background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#3182CE"))
+                        cornerRadius = dp(4).toFloat()
+                    }
+                    layoutParams = FrameLayout.LayoutParams(
+                        progressWidthPx,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                }
+                barContainer.addView(barProgress)
+
+                itemLayout.addView(tvResTitle)
+                itemLayout.addView(tvResStatus)
+                itemLayout.addView(barContainer)
+                container.addView(itemLayout)
             }
-            barContainer.addView(barProgress)
 
-            itemLayout.addView(tvResTitle)
-            itemLayout.addView(tvResStatus)
-            itemLayout.addView(barContainer)
-            container.addView(itemLayout)
+            container.setOnClickListener {
+                showReservoirsCommunitiesDialog()
+            }
+
+            container
+        } catch (e: Exception) {
+            View(this)
         }
-
-        container.setOnClickListener {
-            showReservoirsCommunitiesDialog()
-        }
-
-        return container
     }
 
     private fun makeCardCollapsible(
