@@ -1856,11 +1856,9 @@ class MainActivity : ComponentActivity() {
     private fun showWidgetConfigDialog() {
         val prefs = getSharedPreferences("minimal_widget_prefs", Context.MODE_PRIVATE)
 
-        val showMoon = prefs.getBoolean("show_widget_moon", true)
-        val showWind = prefs.getBoolean("show_widget_wind", true)
-        val showRain = prefs.getBoolean("show_widget_rain", true)
-        val showUv = prefs.getBoolean("show_widget_uv", true)
-        val showSunlight = prefs.getBoolean("show_widget_sunlight", true)
+        val showWind = prefs.getBoolean("custom_widget_show_wind", true)
+        val showRainUv = prefs.getBoolean("custom_widget_show_rain_uv", true)
+        val bottomMetric = prefs.getString("custom_widget_bottom_metric", "SPORTS") ?: "SPORTS"
 
         val scrollView = android.widget.ScrollView(this)
         val layout = LinearLayout(this).apply {
@@ -1875,12 +1873,12 @@ class MainActivity : ComponentActivity() {
                 textSize = 14.5f
                 setTextColor(Color.parseColor("#2B6CB0"))
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, dp(6), 0, dp(4))
+                setPadding(0, dp(10), 0, dp(4))
             }
             layout.addView(tv)
         }
 
-        createSectionTitle("👁️ Elementos Visibles en el Widget")
+        createSectionTitle("👁️ Filas Visibles")
 
         fun createSwitchRow(label: String, initialChecked: Boolean): android.widget.CheckBox {
             val cb = android.widget.CheckBox(this@MainActivity).apply {
@@ -1893,32 +1891,63 @@ class MainActivity : ComponentActivity() {
             return cb
         }
 
-        val cbMoon = createSwitchRow("📷 Cámara lunar (Noches óptimas)", showMoon)
-        val cbWind = createSwitchRow("💨 Viento (Velocidad y racha)", showWind)
-        val cbRain = createSwitchRow("💧 Lluvia (Previsión precipitación)", showRain)
-        val cbUv = createSwitchRow("UV Índice UV (Franja UV ≥ 3)", showUv)
-        val cbSunlight = createSwitchRow("🏃 Horas deporte (verde)", showSunlight)
+        val cbWind = createSwitchRow("💨 Mostrar Viento y rachas (ej. ↘ 12 (23))", showWind)
+        val cbRainUv = createSwitchRow("💧 Mostrar Lluvia (mm) e Índice UV", showRainUv)
+
+        createSectionTitle("📊 Métrica 4.ª Fila Inferior")
+
+        val radioGroup = android.widget.RadioGroup(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        val metricsMap = listOf(
+            "SPORTS" to "🏃 Horas óptimas de deporte (ej. 🏃 8 h)",
+            "FEELS_LIKE" to "🌡️ Sensación térmica Máx/Mín (ej. 🌡️ 13°/5°)",
+            "RAIN_PROB" to "☔ Probabilidad de lluvia (ej. ☔ 80%)",
+            "SUNSHINE" to "☀️ Horas de sol efectivo (ej. ☀️ 7.5 h)",
+            "HUMIDITY" to "💧 Humedad relativa (ej. 💧 68%)",
+            "NONE" to "❌ Ocultar fila inferior (vista compacta)"
+        )
+
+        val radioButtonsMap = mutableMapOf<String, android.widget.RadioButton>()
+
+        for ((key, label) in metricsMap) {
+            val rb = android.widget.RadioButton(this@MainActivity).apply {
+                id = View.generateViewId()
+                text = label
+                textSize = 13f
+                isChecked = (key == bottomMetric)
+                setPadding(dp(4), dp(4), 0, dp(4))
+            }
+            radioGroup.addView(rb)
+            radioButtonsMap[key] = rb
+        }
+
+        layout.addView(radioGroup)
 
         AlertDialog.Builder(this)
-            .setTitle("⚙️ Ajustes del Widget")
+            .setTitle("⚙️ Configurar Widget Personalizable")
             .setView(scrollView)
             .setPositiveButton("Guardar") { _, _ ->
-                val newMoon = cbMoon.isChecked
                 val newWind = cbWind.isChecked
-                val newRain = cbRain.isChecked
-                val newUv = cbUv.isChecked
-                val newSunlight = cbSunlight.isChecked
+                val newRainUv = cbRainUv.isChecked
+
+                var selectedMetric = "SPORTS"
+                for ((key, rb) in radioButtonsMap) {
+                    if (rb.isChecked) {
+                        selectedMetric = key
+                        break
+                    }
+                }
 
                 prefs.edit()
-                    .putBoolean("show_widget_moon", newMoon)
-                    .putBoolean("show_widget_wind", newWind)
-                    .putBoolean("show_widget_rain", newRain)
-                    .putBoolean("show_widget_uv", newUv)
-                    .putBoolean("show_widget_sunlight", newSunlight)
+                    .putBoolean("custom_widget_show_wind", newWind)
+                    .putBoolean("custom_widget_show_rain_uv", newRainUv)
+                    .putString("custom_widget_bottom_metric", selectedMetric)
                     .commit()
 
-                android.widget.Toast.makeText(this, "Ajustes del widget guardados", android.widget.Toast.LENGTH_SHORT).show()
-                WeatherWidgetProvider.requestRefresh(this)
+                android.widget.Toast.makeText(this, "Ajustes del Widget Personalizable guardados", android.widget.Toast.LENGTH_SHORT).show()
+                CustomWeatherWidgetProvider.refreshWidget(this@MainActivity)
             }
             .setNegativeButton("Cancelar", null)
             .show()
